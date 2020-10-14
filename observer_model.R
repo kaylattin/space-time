@@ -132,9 +132,8 @@ out = jagsUI(data = jags_dat,
              n.iter = nIter,
              parallel = T,
              modules = NULL,
-             model.file = "thesis_mod_withoutobserver.r")
+             model.file = "observer model.r")
 
 
 summary(out)
 print(out)
-out$mean$beta_time_space #posterior means of the slope parameters
