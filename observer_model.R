@@ -44,7 +44,7 @@ obs_offset <- a.obs_off[dat_obs[i,"observer_f"]]
 noise <- 0.1
 
 for(i in 1:nrow(dat_obs)) {
-  int <- a.sp_eff + a.route_eff + a.ecozone_eff + a.obs_off
+  int <- species_effect + obs_offset + route_effect + ecozone_effect
   lmbd_obs <- exp(int+rnorm(1,0,noise))
   dat_obs[i,"count_obs"] <- rpois(1, lambda = lmbd_obs)
 }
