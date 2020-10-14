@@ -1,9 +1,6 @@
 library(jagsUI)
 library(tidyverse)
 library(ggmcmc)
-library(rjags)
-
-#number of space_time replicates (i.e., number of regions)
 
 ##########################
 #      MAIN MODEL        #
@@ -64,51 +61,6 @@ for(i in 1:nrow(dat)){
 
 ncounts = nrow(dat)
 
-
-#########################
-#     OBSERVER MODEL    #
-#########################
-## set up fake data structure ----------------------
-dat_start <- expand.grid(species_obs = c("Red-eyed Vireo","American Robin","Ovenbird","Wood Thrush","Hermit Thrush","Black-capped Chickadee"),
-                         route = rep(1:10))
-
-# set dataframe i can merge
-route <- as.integer(c(1,2,3,4,5,6,7,8,9,10)) # common column
-observer <- c("ID1","ID2","ID3","ID4","ID5","ID6","ID7","ID8","ID9","ID10")
-ecozone <-as.integer(c(14,6,7,13,14,14,9,6,7,13)) # random ecozones for each route
-
-dat_merge <- data.frame(route, observer, ecozone)
-
-dat_obs <- merge(dat_start, dat_merge, by="route")
-
-# convert all to integer
-for(i in c("species_obs","observer")){
-  dat_obs[,paste0(i,"_f")] = as.integer(dat_obs[,i])
-}
-
-nobs <- length(unique(dat_obs$observer_f)) # number of observers
-nroutes <- length(unique(dat_obs$route)) # number of routes
-nspecies_obs <- length(unique(dat_obs$species_obs)) # number of species in observer dataset
-necozones <- length(dat_obs$ecozone) # number of ecozones
-
-a.sp_eff = runif(nspecies_obs,0.5,2) #coarse mean counts overall
-a.route_eff = rnorm(nroutes,0,0.1) #random variation
-a.ecozone_eff = rnorm(necozones,0,0.1)
-a.obs_off <- runif(nobs,-1,1) # 10 observers
-
-species_effect <- a.sp_eff[dat_obs[i,"species_obs_f"]]
-ecozone_effect <- a.ecozone_eff[dat_obs[i,"ecozone"]]
-route_effect <- a.route_eff[dat_obs[i,"route"]]
-obs_offset <- a.obs_off[dat_obs[i,"observer_f"]]
-
-for(i in 1:nrow(dat_obs)) {
-  int <- obs_offset + route_effect + species_effect + ecozone_effect
-  lmbd_obs <- exp(int+rnorm(1,0,noise))
-  dat_obs[i,"count_obs"] <- rpois(1, lambda = lmbd_obs)
-}
-
-ncounts_obs <- nrow(dat_obs) # number of observer counts
-
 ###############################
 #    MODEL CODE!!!            #
 ###############################
@@ -125,11 +77,9 @@ sd_beta_mod <- 0.1 * sd_beta_modt
 tau_beta_mod <- pow(sd_beta_mod, -2)
 
 
-beta_diff[g] <- beta_space_time[g,1] - beta_space_time[g,2]
-
   ## MAIN MODEL
 for(k in 1:ncounts) {
-  log(lambda[k]) <- alpha[region[k],species[k]] + (beta_space_time[region[k],space.time[k]] * (p_forest[k] - 0.5)) + (beta_wind[k] * wind[k]) + obs_offset[observer[k]] + noise[k]
+  log(lambda[k]) <- alpha[region[k],species[k]] + (beta_space_time[region[k],space.time[k]] * (p_forest[k] - 0.5)) + (beta_wind[k] * wind[k]) + noise[k]
   count[k] ~ dpois(lambda[k])
   
   # priors
@@ -143,8 +93,8 @@ for(g in 1:nregions){
   alpha_bar[g] ~ dnorm(0,1) # weakly informative prior on REGION intercept
   
   sd_speciest[g] ~ dt(0, 1, 20) T(0,) 
-  sd_species <- 0.1*sd_speciest
-  tau_species <- pow(sd_species, -2) # prior on precision
+  sd_species[g] <- 0.1*sd_speciest[g]
+  tau_species[g] <- pow(sd_species[g], -2) # prior on precision
   
   for(s in 1:nspecies){
     alpha[g,s] ~ dnorm(alpha_bar[g], tau_species[g]) # region-level intercept for species-s, centered on region-level mean
@@ -156,12 +106,12 @@ beta_mod[g] ~ dnorm(0, tau_beta_mod)
 beta_space_time[g,1] ~ dnorm(0,0.01) # or beta_space_time[g,1] ~ dnorm(0,tau.beta_space_time) if random effect
 beta_space_time[g,2] <- beta_space_time[g,1] + beta_mod[g] # space slope == 2
 
+beta_diff[g] <- beta_space_time[g,1] - beta_space_time[g,2]
 }
-
 
 }
 "
-cat(modl,file = "space_time_withobserver.r")
+cat(modl,file = "space_time_mainfile.r")
 
 
 
@@ -202,9 +152,9 @@ out = jagsUI(data = jags_dat,
              n.iter = nIter,
              parallel = T,
              modules = NULL,
-             model.file = "space_time_withobserver.r")
+             model.file = "space_time_mainfile.r")
 
 
 summary(out)
 print(out)
-out$mean$beta_time_space #posterior means of the slope parameters
+out$mean$beta_space_time #posterior means of the slope parameters
