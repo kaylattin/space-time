@@ -142,11 +142,18 @@ parms <- c("beta_space_time",
 
 burnInSteps = 5000            # Number of steps to "burn-in" the samplers. 
 nChains = 4                  # Number of chains to run.
-numSavedSteps=6000         # Total number of steps in each chain to save. 
+numSavedSteps=10000         # Total number of steps in each chain to save. 
 thinSteps=10                   # Number of steps to "thin" (1=keep every step).
 nIter = ceiling( ( (numSavedSteps * thinSteps )+burnInSteps)) # Steps per chain.
 
-# get posterior samples in mcmc list format ----------------------------
+
+# re-set R memory limit to be really big -------------
+memory.limit(56000)
+
+
+# get posterior samples ----------------------------
+# (10000 - 5000)/20 = 250
+# 250 * 4 chains = 1000 values
 out = jagsUI(data = jags_dat,
              parameters.to.save = parms,
              n.chains = 4,
