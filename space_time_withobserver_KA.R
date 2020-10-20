@@ -134,21 +134,10 @@ sd_beta_modt ~ dt(0,1,4) T(0,)
 sd_beta_mod <- 0.1 * sd_beta_modt
 tau_beta_mod <- pow(sd_beta_mod, -2)
 
-  ## MAIN MODEL
-for(k in 1:ncounts) {
-  log(lambda[k]) <- alpha[region[k],species[k]] + (beta_space_time[region[k],space.time[k]] * (p_forest[k] - 0.5)) + (beta_wind[k] * wind[k]) + obs_offset[observer[k]] + noise[k]
-  count[k] ~ dpois(lambda[k])
   
-  # priors
-  noise[k] ~ dnorm(0, taunoise)
-  beta_wind[k] ~ dnorm(0,0.01)
-  
-}
-  
-  
-  #### observer model
+######### observer model ###########
 for(k in 1:ncounts_obs) {
-  log(lambda_obs[k]) <- alpha_obs[k] + species_effect[species_obs[k]] + obs_effect[obs[k]] + route_effect[route[k]] + ecozone_effect[ecozone[k]] + noise_obs[k]
+  log(lambda_obs[k]) <- alpha_obs[k] + species_effect[species_obs[k]] + obs_offset[obs[k]] + route_effect[route[k]] + ecozone_effect[ecozone[k]] + noise_obs[k]
   
   alpha_obs[k] ~ dnorm(0,0.01) # intercept
   noise_obs[k] ~ dnorm(0, tau_noise_obs)
@@ -157,7 +146,7 @@ for(k in 1:ncounts_obs) {
   }
   
   for(o in 1:nobs) {
-    obs_effect[o] ~ dnorm(0,tau_obs)
+    obs_offset[o] ~ dnorm(0,tau_obs)
   }
   
   for(r in 1:nroutes_obs) {
@@ -172,20 +161,33 @@ for(k in 1:ncounts_obs) {
     ecozone_effect[e] ~ dnorm(0, 0.01)
   }
   
-  ## INTERCEPT
-for(g in 1:nregions){
-  alpha_bar[g] ~ dnorm(0,1) # weakly informative prior on REGION intercept
+
+######### MAIN model ###########
+for(k in 1:ncounts) {
+  log(lambda[k]) <- alpha[region[k],species[k]] + (beta_space_time[region[k],space.time[k]] * (p_forest[k] - 0.5)) + (beta_wind[k] * wind[k]) + obs_offset[observer[k]] + noise[k]
+  count[k] ~ dpois(lambda[k])
   
-  sd_speciest[g] ~ dt(0, 1, 20) T(0,) 
-  sd_species[g] <- 0.1*sd_speciest[g]
-  tau_species[g] <- pow(sd_species[g], -2) # prior on precision
+  # priors
+  noise[k] ~ dnorm(0, taunoise)
+  beta_wind[k] ~ dnorm(0,0.01)
+  
+}
+  
+for(g in 1:nregions){
+
+## priors on alpha
+  alpha_bar[g] ~ dnorm(0,1) # weakly informative prior on REGION intercept
   
   for(s in 1:nspecies){
     alpha[g,s] ~ dnorm(alpha_bar[g], tau_species[g]) # region-level intercept for species-s, centered on region-level mean
   }
+  
+## priors on alpha vars
+  sd_speciest[g] ~ dt(0, 1, 20) T(0,) 
+  sd_species[g] <- 0.1*sd_speciest[g]
+  tau_species[g] <- pow(sd_species[g], -2) # prior on precision
 
-
- ## BETAS
+ ## priors on beta
 beta_mod[g] ~ dnorm(0, tau_beta_mod)
 beta_space_time[g,1] ~ dnorm(0,0.01) # or beta_space_time[g,1] ~ dnorm(0,tau.beta_space_time) if random effect
 beta_space_time[g,2] <- beta_space_time[g,1] + beta_mod[g] # space slope == 2
@@ -205,6 +207,7 @@ jags_dat <- list('count' = dat$count,
                  'p_forest' = dat$p_forest,
                  'species' = dat$species_f,
                  'wind' = dat$wind,
+                 'observer' = dat$observer,
                  'ncounts' = ncounts,
                  'nspecies' = nspecies,
                  'nregions' = nregions,
@@ -249,7 +252,7 @@ nIter = ceiling( ( (numSavedSteps * thinSteps )+burnInSteps)) # Steps per chain.
 # get posterior samples in mcmc list format ----------------------------
 out = jagsUI(data = jags_dat,
              parameters.to.save = parms,
-             n.chains = 3,
+             n.chains = 4,
              n.burnin = burnInSteps,
              n.thin = thinSteps,
              n.iter = nIter,

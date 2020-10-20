@@ -77,7 +77,7 @@ sd_beta_mod <- 0.1 * sd_beta_modt
 tau_beta_mod <- pow(sd_beta_mod, -2)
 
 
-  ## MAIN MODEL
+######### main model ###########
 for(k in 1:ncounts) {
   log(lambda[k]) <- alpha[region[k],species[k]] + (beta_space_time[region[k],space.time[k]] * (p_forest[k] - 0.5)) + (beta_wind[k] * wind[k]) + noise[k]
   count[k] ~ dpois(lambda[k])
@@ -88,10 +88,13 @@ for(k in 1:ncounts) {
   
 }
 
-  ## INTERCEPT
+
 for(g in 1:nregions){
+
+  # priors on alpha mu
   alpha_bar[g] ~ dnorm(0,1) # weakly informative prior on REGION intercept
   
+  # priors on alpha vars
   sd_speciest[g] ~ dt(0, 1, 20) T(0,) 
   sd_species[g] <- 0.1*sd_speciest[g]
   tau_species[g] <- pow(sd_species[g], -2) # prior on precision
@@ -101,7 +104,7 @@ for(g in 1:nregions){
   }
 
 
- ## BETAS
+# priors on beta
 beta_mod[g] ~ dnorm(0, tau_beta_mod)
 beta_space_time[g,1] ~ dnorm(0,0.01) # or beta_space_time[g,1] ~ dnorm(0,tau.beta_space_time) if random effect
 beta_space_time[g,2] <- beta_space_time[g,1] + beta_mod[g] # space slope == 2
@@ -139,14 +142,14 @@ parms <- c("beta_space_time",
 
 burnInSteps = 5000            # Number of steps to "burn-in" the samplers. 
 nChains = 4                  # Number of chains to run.
-numSavedSteps=4000         # Total number of steps in each chain to save. 
+numSavedSteps=6000         # Total number of steps in each chain to save. 
 thinSteps=10                   # Number of steps to "thin" (1=keep every step).
 nIter = ceiling( ( (numSavedSteps * thinSteps )+burnInSteps)) # Steps per chain.
 
 # get posterior samples in mcmc list format ----------------------------
 out = jagsUI(data = jags_dat,
              parameters.to.save = parms,
-             n.chains = 3,
+             n.chains = 4,
              n.burnin = burnInSteps,
              n.thin = thinSteps,
              n.iter = nIter,
