@@ -67,7 +67,7 @@ tau_obs <- pow(sd_obs, -2)
 sd_noise_obs ~ dt(0, 1, 4) T(0,)
 tau_noise_obs <- pow(sd_noise_obs, -2)
     
-  #### observer model
+######### observer model ###########
 for(k in 1:ncounts_obs) {
   log(lambda_obs[k]) <- alpha_obs[k] + species_effect[species_obs[k]] + obs_effect[obs[k]] + route_effect[route[k]] + ecozone_effect[ecozone[k]] + noise_obs[k]
   count_obs[k] ~ dpois(lambda_obs[k])
