@@ -14,7 +14,7 @@ dat <- expand.grid(species = c("Red-eyed Vireo","American Robin","Ovenbird","Woo
                    space_time = rep(c("time","space")),
                    p_forest = seq(0.1,0.8,length.out = 13))
 
-dat$wind= floor(runif(8,min=1,max=5))
+dat$wind <- floor(runif(8,min=1,max=5))
 observer_ID <- rep(1:7)
 dat$observer <- sample(observer_ID,replace=TRUE)
 nobservers <- length(unique(dat$observer))
@@ -137,9 +137,8 @@ tau_beta_mod <- pow(sd_beta_mod, -2)
   
 ######### observer model ###########
 for(k in 1:ncounts_obs) {
-  log(lambda_obs[k]) <- alpha_obs[k] + species_effect[species_obs[k]] + obs_offset[obs[k]] + route_effect[route[k]] + ecozone_effect[ecozone[k]] + noise_obs[k]
+  log(lambda_obs[k]) <- species_effect[species_obs[k]] + obs_offset[obs[k]] + route_effect[route[k]] + ecozone_effect[ecozone[k]] + noise_obs[k]
   
-  alpha_obs[k] ~ dnorm(0,0.01) # intercept
   noise_obs[k] ~ dnorm(0, tau_noise_obs)
   
   count_obs[k] ~ dpois(lambda[k])
