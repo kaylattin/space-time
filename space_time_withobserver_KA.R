@@ -141,7 +141,7 @@ for(k in 1:ncounts_obs) {
   
   noise_obs[k] ~ dnorm(0, tau_noise_obs)
   
-  count_obs[k] ~ dpois(lambda[k])
+  count_obs[k] ~ dpois(lambda_obs[k])
   }
   
   for(o in 1:nobs) {
@@ -263,7 +263,7 @@ out = jagsUI(data = jags_dat,
              n.iter = nIter,
              parallel = T,
              modules = NULL,
-             model.file = "space_timewithobserver.r")
+             model.file = "space_time_withobserver.r")
 
 
 summary(out)
