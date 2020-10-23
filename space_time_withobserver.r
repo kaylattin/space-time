@@ -22,12 +22,11 @@ tau_beta_mod <- pow(sd_beta_mod, -2)
   
 ######### observer model ###########
 for(k in 1:ncounts_obs) {
-  log(lambda_obs[k]) <- alpha_obs[k] + species_effect[species_obs[k]] + obs_offset[obs[k]] + route_effect[route[k]] + ecozone_effect[ecozone[k]] + noise_obs[k]
+  log(lambda_obs[k]) <- species_effect[species_obs[k]] + obs_offset[obs[k]] + route_effect[route[k]] + ecozone_effect[ecozone[k]] + noise_obs[k]
   
-  alpha_obs[k] ~ dnorm(0,0.01) # intercept
   noise_obs[k] ~ dnorm(0, tau_noise_obs)
   
-  count_obs[k] ~ dpois(lambda[k])
+  count_obs[k] ~ dpois(lambda_obs[k])
   }
   
   for(o in 1:nobs) {

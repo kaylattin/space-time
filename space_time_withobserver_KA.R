@@ -9,7 +9,7 @@ library(ggmcmc)
 # setting up fake data structure------------------------------------------
 
 dat <- expand.grid(species = c("Red-eyed Vireo","American Robin","Ovenbird","Wood Thrush","Hermit Thrush","Black-capped Chickadee"),
-                   sites = rep(1:8), # 6 year sites and 6 space sites for 21 regions
+                   sites = rep(1:8), # 8 year sites and 8 space sites for 21 regions
                    regions = rep(1:21),
                    space_time = rep(c("time","space")),
                    p_forest = seq(0.1,0.8,length.out = 13))
@@ -20,8 +20,6 @@ dat$observer <- sample(observer_ID,replace=TRUE)
 nobservers <- length(unique(dat$observer))
 
 #changing the factor-level information in dat to unique integers
-#this is required for JAGS, it can't handle factors or character variables, only numeric and integer
-# so for example, this changes "Red-eyed Vireo" to 1, "American Robin" to 2, etc.
 for(i in c("species","space_time")){
   dat[,paste0(i,"_f")] = as.integer(dat[,i])
 }
@@ -73,8 +71,8 @@ route <- as.integer(c(1,2,3,4,5,6,7,8,9,10)) # common column
 observer <- c("ID1","ID2","ID3","ID4","ID5","ID6","ID7","ID8","ID9","ID10")
 ecozone <- as.integer(c(2,1,1,2,2,1,2,1,2,1)) # random ecozones for each route
 
-# 6 == ecozone 1
-# 7 == ecozone 2
+# 1 == ecozone 6
+# 2 == ecozone 7
 
 dat_merge <- data.frame(route, observer, ecozone)
 
@@ -243,7 +241,7 @@ parms <- c("beta_space_time",
            "ecozone_effect")
 
 burnInSteps = 5000            # Number of steps to "burn-in" the samplers. 
-nChains = 4                  # Number of chains to run.
+nChains = 3                  # Number of chains to run.
 numSavedSteps= 10000         # Total number of steps in each chain to save. 
 thinSteps=10                   # Number of steps to "thin" (1=keep every step).
 nIter = ceiling( ( (numSavedSteps * thinSteps )+burnInSteps)) # Steps per chain.
@@ -257,7 +255,7 @@ memory.limit(56000)
 # niter = 105,000
 out = jagsUI(data = jags_dat,
              parameters.to.save = parms,
-             n.chains = 4,
+             n.chains = 3,
              n.burnin = burnInSteps,
              n.thin = thinSteps,
              n.iter = nIter,
@@ -268,4 +266,5 @@ out = jagsUI(data = jags_dat,
 
 summary(out)
 print(out)
-out$mean$beta_time_space #posterior means of the slope parameters
+out$mean$beta_space_time #posterior means of the slope parameters
+out$mean$beta_diff
