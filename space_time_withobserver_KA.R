@@ -224,41 +224,28 @@ jags_dat <- list('count' = dat$count,
 
 
 parms <- c("beta_space_time",
-           "sigma.noise",
+           "sd_noise",
            "beta_wind",
-           "alpha_bar",
            "sd_species",
            "alpha",
            "beta_mod",
            "sd_beta_mod",
            "beta_diff",
            "sd_noise_obs",
-           "sd_route",
-           "sd_obs",
-           "obs_offset",
-           "route_effect",
-           "species_effect",
-           "ecozone_effect")
-
-burnInSteps = 5000            # Number of steps to "burn-in" the samplers. 
-nChains = 3                  # Number of chains to run.
-numSavedSteps= 10000         # Total number of steps in each chain to save. 
-thinSteps=10                   # Number of steps to "thin" (1=keep every step).
-nIter = ceiling( ( (numSavedSteps * thinSteps )+burnInSteps)) # Steps per chain.
-
+           "obs_offset")
 
 # re-set R memory limit to be really big -------------
+
 memory.limit(56000)
 
-
 # get posterior samples ----------------------------
-# niter = 105,000
-out = jagsUI(data = jags_dat,
+
+out_small = jagsUI(data = jags_dat,
              parameters.to.save = parms,
              n.chains = 3,
-             n.burnin = burnInSteps,
-             n.thin = thinSteps,
-             n.iter = nIter,
+             n.burnin = 10000,
+             n.thin = 100,
+             n.iter = 110000,
              parallel = T,
              modules = NULL,
              model.file = "space_time_withobserver.r")
@@ -268,3 +255,12 @@ summary(out)
 print(out)
 out$mean$beta_space_time #posterior means of the slope parameters
 out$mean$beta_diff
+
+out$summary
+out_ggs = ggs(out$samples)
+
+install.packages("rlist")
+library(rlist)
+list.save(out,"simulation_output.RData")
+
+out_ggs = ggs(x$samples)
