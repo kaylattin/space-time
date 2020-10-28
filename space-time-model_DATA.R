@@ -1,0 +1,216 @@
+library(jagsUI)
+library(tidyverse)
+library(ggmcmc)
+
+data <- read.csv("test_data.csv", fileEncoding="UTF-8-BOM")
+obs_data <- read.csv("test_observerdata.csv", fileEncoding="UTF-8-BOM")
+
+#load("thesis_model_KA.RData")
+
+### set up main analysis data
+space.time <- data$space.time # categorical
+region <- data$Region # categorical
+forest <- data$Forest.cover # continuous 
+species_f <- data$Species # imported in as a factor - categorical
+count <- data$BBS.count # count
+observer <- data$ObsN # categorical
+wind <- data$StartWind # categorical
+
+
+### set up observer model data
+route <- obs_data$RouteNum # categorical
+species_obs_f <- obs_data$Species # categorical - factor
+obs <- obs_data$ObsN # count
+count_obs <- obs_data$Count #
+ecozone <- obs_data$ECOZONE
+
+### convert to percentage
+p_forest <- 0.01*forest
+
+# convert species factor to integer
+species <- as.integer(as.factor(species_f))
+species_obs <- as.integer(as.factor(species_obs_f))
+
+
+### set up n's
+ncounts <- nrow(data)
+nspecies <- length(unique(species)) # number of species
+nregions <- length(unique(region)) # number of regions
+ncounts_obs <- nrow(obs_data) # number of observer counts
+nobs <- length(unique(obs)) # number of observers
+nroutes_obs <- length(unique(route)) # number of routes
+nspecies_obs <- length(unique(species_obs)) # number of species in observer dataset
+necozones_obs <- length(unique(ecozone)) # number of ecozones
+
+###############################
+#    MODEL CODE!!!            #
+###############################
+modl <- "
+model {
+
+######### priors & constraints ###########
+sd_noiset ~ dt(0, 1, 20) T(0,) # absolute value (truncated >0 ) of student's-t centred on 0 / half-t prior on standard deviation
+sd_noise <- 0.1*sd_noiset # puts 95% of sdnoise below ~0.5 on the log scale
+taunoise <- pow(sd_noise, -2) # converts back to precision (inverse of variance)
+
+sd_route ~ dt(0, 1, 4) T(0,)
+tau_route <- pow(sd_route, -2)
+  
+sd_obs ~ dt(0, 1, 4) T(0,)
+tau_obs <- pow(sd_obs, -2)
+      
+sd_noise_obs ~ dt(0, 1, 4) T(0,)
+tau_noise_obs <- pow(sd_noise_obs, -2)
+    
+sd_beta_modt ~ dt(0,1,4) T(0,)
+sd_beta_mod <- 0.1 * sd_beta_modt
+tau_beta_mod <- pow(sd_beta_mod, -2)
+
+  
+######### observer model ###########
+for(k in 1:ncounts_obs) {
+  log(lambda_obs[k]) <- species_effect[species_obs[k]] + obs_offset[obs[k]] + route_effect[route[k]] + ecozone_effect[ecozone[k]] + noise_obs[k]
+  
+  noise_obs[k] ~ dnorm(0, tau_noise_obs)
+  
+  count_obs[k] ~ dpois(lambda_obs[k])
+  }
+  
+  for(o in 1:nobs) {
+    obs_offset[o] ~ dnorm(0,tau_obs)
+  }
+  
+  for(r in 1:nroutes_obs) {
+    route_effect[r] ~ dnorm(0, tau_route)
+  }
+  
+  for(s in 1:nspecies_obs) {
+    species_effect[s] ~ dnorm(0, 0.01)
+  }
+  
+  for(e in 1:necozones_obs) {
+    ecozone_effect[e] ~ dnorm(0, 0.01)
+  }
+  
+
+######### MAIN model ###########
+for(k in 1:ncounts) {
+  log(lambda[k]) <- alpha[region[k],species[k]] + (beta_space_time[region[k],space.time[k]] * (p_forest[k] - 0.5)) + (beta_wind[k] * wind[k]) + obs_offset[observer[k]] + noise[k]
+  count[k] ~ dpois(lambda[k])
+  
+  # priors
+  noise[k] ~ dnorm(0, taunoise)
+  beta_wind[k] ~ dnorm(0,0.01)
+  
+}
+  
+for(g in 1:nregions){
+
+## priors on alpha
+  alpha_bar[g] ~ dnorm(0,1) # weakly informative prior on REGION intercept
+  
+  for(s in 1:nspecies){
+    alpha[g,s] ~ dnorm(alpha_bar[g], tau_species[g]) # region-level intercept for species-s, centered on region-level mean
+  }
+  
+## priors on alpha vars
+  sd_speciest[g] ~ dt(0, 1, 20) T(0,) 
+  sd_species[g] <- 0.1*sd_speciest[g]
+  tau_species[g] <- pow(sd_species[g], -2) # prior on precision
+
+ ## priors on beta
+beta_mod[g] ~ dnorm(0, tau_beta_mod)
+beta_space_time[g,1] ~ dnorm(0,0.01) # or beta_space_time[g,1] ~ dnorm(0,tau.beta_space_time) if random effect
+beta_space_time[g,2] <- beta_space_time[g,1] + beta_mod[g] # space slope == 2
+
+beta_diff[g] <- beta_space_time[g,1] - beta_space_time[g,2]
+}
+
+}
+"
+cat(modl,file = "space_time_DATA.r")
+
+
+
+jags_dat <- list('count' = dat$count,
+                 'region' = dat$regions,
+                 'space.time' = dat$space_time_f,
+                 'p_forest' = dat$p_forest,
+                 'species' = dat$species_f,
+                 'wind' = dat$wind,
+                 'observer' = dat$observer,
+                 'ncounts' = ncounts,
+                 'nspecies' = nspecies,
+                 'nregions' = nregions,
+                 'nobservers' = nobservers,
+                 # observer
+                 'count_obs' = dat_obs$count_obs,
+                 'obs' = dat_obs$observer_f,
+                 'species_obs' = dat_obs$species_obs_f,
+                 'route' = dat_obs$route,
+                 'ecozone' = dat_obs$ecozone,
+                 'nobs' = nobs,
+                 'ncounts_obs' = ncounts_obs,
+                 'nspecies_obs' = nspecies_obs,
+                 'necozones_obs' = necozones,
+                 'nroutes_obs' = nroutes,
+                 'necozones' = necozones)
+
+
+parms <- c("beta_space_time",
+           "sd_noise",
+           "beta_wind",
+           "sd_species",
+           "alpha",
+           "beta_mod",
+           "sd_beta_mod",
+           "beta_diff",
+           "sd_noise_obs",
+           "obs_offset")
+
+# re-set R memory limit to be really big -------------
+
+memory.limit(56000)
+
+# get posterior samples ----------------------------
+
+out_small = jagsUI(data = jags_dat,
+                   parameters.to.save = parms,
+                   n.chains = 3,
+                   n.burnin = 5000,
+                   n.thin = 100,
+                   n.iter = 105000,
+                   parallel = T,
+                   modules = NULL,
+                   model.file = "space_time_DATA.r")
+
+library(rlist)
+list.save(out_small,"data_rawoutput.RData")
+
+
+summary(out_small)
+print(out_small)
+out_small$mean$beta_space_time #posterior means of the slope parameters
+out_small$mean$beta_diff
+
+out_small$summary
+# have to do them separately b/c not enough memory
+out_ggs_beta_space_time = ggs(x$samples,  family = "beta_space_time")
+out_ggs_beta_mod = ggs(x$samples,  family = "beta_mod")
+out_ggs_beta_diff = ggs(x$samples, family = "beta_diff")
+out_ggs_beta_wind = ggs(x$samples,  family = "beta_wind") # really huge
+
+out_ggs_sd_beta_mod = ggs(x$samples, family = "sd_beta_mod")
+out_ggs_sd_noise = ggs(x$samples, family = "sd_noise")
+out_ggs_obs_offset = ggs(x$samples, family = "obs_offset")
+out_ggs_sd_noise_obs = ggs(x$samples, family = "sd_noise_obs")
+
+ggmcmc(out_ggs_beta_space_time,file = "beta_space_time_summary_SIM.pdf", family = "beta_space_time", param_page = 8)
+ggmcmc(out_ggs_beta_mod,file = "beta_mod_summary_SIM.pdf", family = "beta_mod", param_page = 8)
+ggmcmc(out_ggs_beta_diff,file = "beta_diff_summary_SIM.pdf", family = "beta_diff", param_page = 8)
+# ggmcmc(out_ggs_beta_wind,file = "beta_wind_summary_SIM.pdf", family = "beta_wind", param_page = 8)
+
+ggmcmc(out_ggs_sd_beta_mod,file = "sd_beta_mod_summary_SIM.pdf", family = "sd_beta_mod", param_page = 8)
+ggmcmc(out_ggs_sd_noise,file = "sd_noise_summary_SIM.pdf", family = "sd_noise", param_page = 8)
+ggmcmc(out_ggs_obs_offset,file = "obs_offset_summary_SIM.pdf", family = "obs_offset", param_page = 8)
+ggmcmc(out_ggs_sd_noise_obs,file = "sd_noise_obs_summary_SIM.pdf", family = "sd_noise_obs", param_page = 8)
