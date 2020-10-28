@@ -2,27 +2,27 @@ library(jagsUI)
 library(tidyverse)
 library(ggmcmc)
 
-data <- read.csv("test_data.csv", fileEncoding="UTF-8-BOM")
-obs_data <- read.csv("test_observerdata.csv", fileEncoding="UTF-8-BOM")
+dat <- read.csv("test_data.csv", fileEncoding="UTF-8-BOM")
+dat_obs <- read.csv("test_observerdata.csv", fileEncoding="UTF-8-BOM")
 
 #load("thesis_model_KA.RData")
 
 ### set up main analysis data
-space.time <- data$space.time # categorical
-region <- data$Region # categorical
-forest <- data$Forest.cover # continuous 
-species_f <- data$Species # imported in as a factor - categorical
-count <- data$BBS.count # count
-observer <- data$ObsN # categorical
-wind <- data$StartWind # categorical
+space.time <- dat$space.time # categorical
+region <- dat$Region # categorical
+forest <- dat$Forest.cover # continuous 
+species_f <- dat$Species # imported in as a factor - categorical
+count <- dat$BBS.count # count
+observer <- dat$ObsN # categorical
+wind <- dat$StartWind # categorical
 
 
 ### set up observer model data
-route <- obs_data$RouteNum # categorical
-species_obs_f <- obs_data$Species # categorical - factor
-obs <- obs_data$ObsN # count
-count_obs <- obs_data$Count #
-ecozone <- obs_data$ECOZONE
+route <- dat_obs$RouteNum # categorical
+species_obs_f <- dat_obs$Species # categorical - factor
+obs <- dat_obs$ObsN # count
+count_obs <- dat_obs$Count #
+ecozone <- dat_obs$ECOZONE
 
 ### convert to percentage
 p_forest <- 0.01*forest
@@ -33,10 +33,11 @@ species_obs <- as.integer(as.factor(species_obs_f))
 
 
 ### set up n's
-ncounts <- nrow(data)
+ncounts <- nrow(dat)
 nspecies <- length(unique(species)) # number of species
 nregions <- length(unique(region)) # number of regions
-ncounts_obs <- nrow(obs_data) # number of observer counts
+nobservers <- length(unique(observer)) # number of observers
+ncounts_obs <- nrow(dat_obs) # number of observer counts
 nobs <- length(unique(obs)) # number of observers
 nroutes_obs <- length(unique(route)) # number of routes
 nspecies_obs <- length(unique(species_obs)) # number of species in observer dataset
@@ -152,14 +153,14 @@ jags_dat <- list('count' = dat$count,
                  'nobs' = nobs,
                  'ncounts_obs' = ncounts_obs,
                  'nspecies_obs' = nspecies_obs,
-                 'necozones_obs' = necozones,
-                 'nroutes_obs' = nroutes,
-                 'necozones' = necozones)
+                 'necozones_obs' = necozones_obs,
+                 'nroutes_obs' = nroutes_obs)
 
 
+# skipping wind for now b/c it's so big
 parms <- c("beta_space_time",
            "sd_noise",
-           "beta_wind",
+           "alpha-bar",
            "sd_species",
            "alpha",
            "beta_mod",
@@ -174,7 +175,7 @@ memory.limit(56000)
 
 # get posterior samples ----------------------------
 
-out_small = jagsUI(data = jags_dat,
+x = jagsUI(data = jags_dat,
                    parameters.to.save = parms,
                    n.chains = 3,
                    n.burnin = 5000,
@@ -185,16 +186,17 @@ out_small = jagsUI(data = jags_dat,
                    model.file = "space_time_DATA.r")
 
 library(rlist)
-list.save(out_small,"data_rawoutput.RData")
+list.save(x,"data_rawoutput.RData")
 
 
-summary(out_small)
-print(out_small)
-out_small$mean$beta_space_time #posterior means of the slope parameters
-out_small$mean$beta_diff
+summary(x)
+print(x)
+x$mean$beta_space_time #posterior means of the slope parameters
+x$mean$beta_diff
 
-out_small$summary
+
 # have to do them separately b/c not enough memory
+# set out = x to ease re-loading the .rdata file across different sessions
 out_ggs_beta_space_time = ggs(x$samples,  family = "beta_space_time")
 out_ggs_beta_mod = ggs(x$samples,  family = "beta_mod")
 out_ggs_beta_diff = ggs(x$samples, family = "beta_diff")
