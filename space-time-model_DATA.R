@@ -2,8 +2,8 @@ library(jagsUI)
 library(tidyverse)
 library(ggmcmc)
 
-dat <- read.csv("test_data.csv", fileEncoding="UTF-8-BOM")
-dat_obs <- read.csv("test_observerdata.csv", fileEncoding="UTF-8-BOM")
+dat <- read.csv("complete_21_ND.csv")
+dat_obs <- read.csv("complete_observer_offset_DATA.csv", fileEncoding="UTF-8-BOM")
 
 #load("thesis_model_KA.RData")
 
@@ -21,7 +21,7 @@ wind <- dat$StartWind # categorical
 route <- dat_obs$RouteNum # categorical
 species_obs_f <- dat_obs$Species # categorical - factor
 obs <- dat_obs$ObsN # count
-count_obs <- dat_obs$Count #
+count_obs <- dat_obs$Count 
 ecozone <- dat_obs$ECOZONE
 
 ### convert to percentage
@@ -133,23 +133,23 @@ cat(modl,file = "space_time_DATA.r")
 
 
 
-jags_dat <- list('count' = dat$count,
-                 'region' = dat$regions,
-                 'space.time' = dat$space_time_f,
-                 'p_forest' = dat$p_forest,
-                 'species' = dat$species_f,
-                 'wind' = dat$wind,
-                 'observer' = dat$observer,
+jags_dat <- list('count' = count,
+                 'region' = region,
+                 'space.time' = space.time,
+                 'p_forest' = p_forest,
+                 'species' = species,
+                 'wind' = wind,
+                 'observer' = observer,
                  'ncounts' = ncounts,
                  'nspecies' = nspecies,
                  'nregions' = nregions,
                  'nobservers' = nobservers,
                  # observer
-                 'count_obs' = dat_obs$count_obs,
-                 'obs' = dat_obs$observer_f,
-                 'species_obs' = dat_obs$species_obs_f,
-                 'route' = dat_obs$route,
-                 'ecozone' = dat_obs$ecozone,
+                 'count_obs' = count_obs,
+                 'obs' = observer,
+                 'species_obs' = species_obs,
+                 'route' = route,
+                 'ecozone' = ecozone,
                  'nobs' = nobs,
                  'ncounts_obs' = ncounts_obs,
                  'nspecies_obs' = nspecies_obs,
