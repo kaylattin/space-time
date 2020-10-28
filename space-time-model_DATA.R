@@ -2,8 +2,8 @@ library(jagsUI)
 library(tidyverse)
 library(ggmcmc)
 
-dat <- read.csv("complete_21_ND.csv")
-dat_obs <- read.csv("complete_observer_offset_DATA.csv", fileEncoding="UTF-8-BOM")
+dat <- read.csv("complete_21_ND_OCT28.csv")
+dat_obs <- read.csv("FINAL_OBSERVER_DATASET.csv", fileEncoding="UTF-8-BOM")
 
 #load("thesis_model_KA.RData")
 
@@ -13,16 +13,17 @@ region <- dat$Region # categorical
 forest <- dat$Forest.cover # continuous 
 species_f <- dat$Species # imported in as a factor - categorical
 count <- dat$BBS.count # count
-observer <- dat$ObsN # categorical
+observer <- dat$Obs_ID # categorical
 wind <- dat$StartWind # categorical
 
 
 ### set up observer model data
-route <- dat_obs$RouteNum # categorical
+route <- dat_obs$Route_ID # categorical - index variable
 species_obs_f <- dat_obs$Species # categorical - factor
-obs <- dat_obs$ObsN # count
+obs <- dat_obs$Obs_ID # categorical - index variable
 count_obs <- dat_obs$Count 
-ecozone <- dat_obs$ECOZONE
+ecozone <- dat_obs$Ecozone_ID # categorical - index variable
+
 
 ### convert to percentage
 p_forest <- 0.01*forest
@@ -69,12 +70,12 @@ tau_beta_mod <- pow(sd_beta_mod, -2)
 
   
 ######### observer model ###########
-for(k in 1:ncounts_obs) {
-  log(lambda_obs[k]) <- species_effect[species_obs[k]] + obs_offset[obs[k]] + route_effect[route[k]] + ecozone_effect[ecozone[k]] + noise_obs[k]
+for(i in 1:ncounts_obs) {
+  log(lambda_obs[i]) <- species_effect[species_obs[i]] + obs_offset[obs[i]] + route_effect[route[i]] + ecozone_effect[ecozone[i]] + noise_obs[i]
   
-  noise_obs[k] ~ dnorm(0, tau_noise_obs)
+  noise_obs[i] ~ dnorm(0, tau_noise_obs)
   
-  count_obs[k] ~ dpois(lambda_obs[k])
+  count_obs[i] ~ dpois(lambda_obs[i])
   }
   
   for(o in 1:nobs) {
@@ -200,7 +201,7 @@ x$mean$beta_diff
 out_ggs_beta_space_time = ggs(x$samples,  family = "beta_space_time")
 out_ggs_beta_mod = ggs(x$samples,  family = "beta_mod")
 out_ggs_beta_diff = ggs(x$samples, family = "beta_diff")
-out_ggs_beta_wind = ggs(x$samples,  family = "beta_wind") # really huge
+# out_ggs_beta_wind = ggs(x$samples,  family = "beta_wind") # really huge
 
 out_ggs_sd_beta_mod = ggs(x$samples, family = "sd_beta_mod")
 out_ggs_sd_noise = ggs(x$samples, family = "sd_noise")
