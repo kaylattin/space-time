@@ -243,24 +243,40 @@ memory.limit(56000)
 out_small = jagsUI(data = jags_dat,
              parameters.to.save = parms,
              n.chains = 3,
-             n.burnin = 10000,
+             n.burnin = 5000,
              n.thin = 100,
-             n.iter = 110000,
+             n.iter = 105000,
              parallel = T,
              modules = NULL,
              model.file = "space_time_withobserver.r")
 
-
-summary(out)
-print(out)
-out$mean$beta_space_time #posterior means of the slope parameters
-out$mean$beta_diff
-
-out$summary
-out_ggs = ggs(out$samples)
-
-install.packages("rlist")
 library(rlist)
-list.save(out,"simulation_output.RData")
+list.save(out_small,"simulation_output_small.RData")
 
-out_ggs = ggs(x$samples)
+
+summary(out_small)
+print(out_small)
+out_small$mean$beta_space_time #posterior means of the slope parameters
+out_small$mean$beta_diff
+
+out_small$summary
+# have to do them separately b/c not enough memory
+out_ggs_beta_space_time = ggs(x$samples,  family = "beta_space_time")
+out_ggs_beta_mod = ggs(x$samples,  family = "beta_mod")
+out_ggs_beta_diff = ggs(x$samples, family = "beta_diff")
+out_ggs_beta_wind = ggs(x$samples,  family = "beta_wind") # really huge
+
+out_ggs_sd_beta_mod = ggs(x$samples, family = "sd_beta_mod")
+out_ggs_sd_noise = ggs(x$samples, family = "sd_noise")
+out_ggs_obs_offset = ggs(x$samples, family = "obs_offset")
+out_ggs_sd_noise_obs = ggs(x$samples, family = "sd_noise_obs")
+
+ggmcmc(out_ggs_beta_space_time,file = "beta_space_time_summary_SIM.pdf", family = "beta_space_time", param_page = 8)
+ggmcmc(out_ggs_beta_mod,file = "beta_mod_summary_SIM.pdf", family = "beta_mod", param_page = 8)
+ggmcmc(out_ggs_beta_diff,file = "beta_diff_summary_SIM.pdf", family = "beta_diff", param_page = 8)
+# ggmcmc(out_ggs_beta_wind,file = "beta_wind_summary_SIM.pdf", family = "beta_wind", param_page = 8)
+
+ggmcmc(out_ggs_sd_beta_mod,file = "sd_beta_mod_summary_SIM.pdf", family = "sd_beta_mod", param_page = 8)
+ggmcmc(out_ggs_sd_noise,file = "sd_noise_summary_SIM.pdf", family = "sd_noise", param_page = 8)
+ggmcmc(out_ggs_obs_offset,file = "obs_offset_summary_SIM.pdf", family = "obs_offset", param_page = 8)
+ggmcmc(out_ggs_sd_noise_obs,file = "sd_noise_obs_summary_SIM.pdf", family = "sd_noise_obs", param_page = 8)
