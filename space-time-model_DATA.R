@@ -179,9 +179,10 @@ memory.limit(56000)
 x = jagsUI(data = jags_dat,
                    parameters.to.save = parms,
                    n.chains = 3,
-                   n.burnin = 5000,
+                   n.adapt = 1000,
+                   n.burnin = 10000,
                    n.thin = 100,
-                   n.iter = 105000,
+                   n.iter = 110000,
                    parallel = T,
                    modules = NULL,
                    model.file = "space_time_DATA.r")
