@@ -38,7 +38,7 @@ d %>% filter(!str_detect(Species, 'unid.'))
 # Remove hybrids and subspecies & merge into 1 species
 # dark-eyed junco and yellow-throated warbler
 
-<<<<<<< HEAD
+
 d$Species[d$Species %in% c("(Myrtle Warbler) Yellow-throated Warbler", "(Audubon Warbler) Yellow-throated Warbler")] <- "Yellow-throated Warbler"
 
 
@@ -64,7 +64,7 @@ df <- select(df, -c(8:50))
 
 # Write Canada dataset
 canada_dataset <- df[which(df$CountryNum == 124),]
-=======
+
 d$Species[d$Species %in% c("(Myrtle Warbler) Yellow-Throated Warbler", "(Audubon Warbler) Yellow-throated Warbler")] <- "Yellow-throated Warbler"
 
 
@@ -87,7 +87,6 @@ d <- select(d, -c(8:50))
 
 # Write Canada dataset
 canada_dataset <- d[which(full_dataset$CountryNum == 124),]
->>>>>>> be4f697fe84d1b6bfc1c49b91922d6f40c56e08d
 
 write.csv(canada_dataset,"canada_BBS_dataset.csv")
 
@@ -96,7 +95,6 @@ write.csv(canada_dataset,"canada_BBS_dataset.csv")
 
 # ecozone (obtained from ArcMap overlay)
 ecozone <-
-<<<<<<< HEAD
 df <- merge()
 
 # % forest cover (obtained from extracting % mean forest cover from GFC forest layers in each transect)
@@ -110,7 +108,7 @@ df <- merge()
 # Observer and weather info
 obs <-
 df <- merge()
-=======
+
 d <- merge()
 
 # % forest cover (obtained from extracting % mean forest cover from GFC forest layers in each transect)
@@ -124,7 +122,6 @@ d <- merge()
 # Observer and weather info
 obs <-
 d <- merge()
->>>>>>> be4f697fe84d1b6bfc1c49b91922d6f40c56e08d
 
 ## Filter for my desired sites -----
 
