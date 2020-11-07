@@ -1,6 +1,5 @@
 setwd("/Users/Kayla/Documents/BBS data")
 
-install.packages("tidyverse")
 library(tidyverse)
 
 d1 <- read.csv("fifty1.csv",header=T)
@@ -20,31 +19,59 @@ names(d8)[names(d8)=="statenum"] <- "StateNum"
 # Create one dataframe
 d <- rbind(d1,d2,d3,d4,d5,d6,d7,d8,d9,d10)
 
-# Create unique transect column
-d$Transect <- paste(d$Route,".",d$Year)
-
-
-
 # Load in bird codes
-code <- 
-  
+names <- read.csv("BBSspecieslist.csv", header=T)
+code <- read.csv("BBLcodes.csv", header=T)
+
 # Load in list of forest species
-forest <-
-  
+forest <- read.csv("forestbirdcodes.csv", header=T)
+
+# Match common names by AOU
+d <- merge(d, names, by="AOU")
 
 # Remove all "unid." species
 d %>% filter(!str_detect(Species, 'unid.'))
 
+
+# Convert Route to a RouteNum that combines State/Province number and the individual Route within the state:
+nrows <- length(d)
+
+for(i in 1:nrows) {
+  if(d$Route[i] < 100 & d$Route[i] > 10) {
+    d$RouteNumber[i] <- paste(d$StateNum[i], d$Route[i], sep="0") 
+  } 
+  else if(d$Route[i] < 10) {
+    d$RouteNumber[i] <- paste(d$StateNum[i], d$Route[i], sep="00")
+  }
+  else if(d$Route[i] > 100) {
+    d$RouteNumber[i] <- paste(d$StateNum[i], d$Route[i], sep="")
+  }
+}
+
+# Create unique transect column
+d$Transect <- paste(d$RouteNumber, d$Year, sep=".")
+d <- select(d, -c(Route, StateNum))
+
+
+# Re-order some columns
+d %>% relocate(Transect,RouteNumber, COMMONNAME, .before = AOU) %>% head()
+d %>% relocate(Species_code, .before = AOU) %>% head()
+d %>% relocate(Forest_species, .after = AOU) %>% head()
+d <- select(d, -c(Seq, ORDER, Family, Genus, Species)) %>% head()
+
+
 # Remove hybrids and subspecies & merge into 1 species
 # dark-eyed junco and yellow-throated warbler
 
-
-d$Species[d$Species %in% c("(Myrtle Warbler) Yellow-throated Warbler", "(Audubon Warbler) Yellow-throated Warbler")] <- "Yellow-throated Warbler"
+d %>% filter(!str_detect(COMMONNAME, 'hybrid'))
+d %>% filter(!str_detect(COMMONNAME, 'unid.'))
+d$COMMONNAME[d$COMMONNAME %in% c("(Myrtle Warbler) Yellow-rumped Warbler", "(Audubon Warbler) Yellow-rumped Warbler")] <- "Yellow-rumped Warbler"
 
 
 # Add in species codes and forest codes
-d$Species_code <- merge(code, d, by="Transect")
-d$Forest <- merge(forest, d, by="Species_code")
+d$Species_code <- merge(code, d, by="COMMONNAME")
+d$Forest_species <- merge(forest, d, by="Species_code")
+
 
 # Select for only forest species
 df <- d[which(d$Forest == 1),]
@@ -95,33 +122,33 @@ write.csv(canada_dataset,"canada_BBS_dataset.csv")
 
 # ecozone (obtained from ArcMap overlay)
 ecozone <-
-df <- merge()
+  df <- merge()
 
 # % forest cover (obtained from extracting % mean forest cover from GFC forest layers in each transect)
 forest <- 
-df <- merge()
+  df <- merge()
 
 # RunType = 0 specification codes (obtained from NWRC)
 run <-
-df <- merge()
-  
+  df <- merge()
+
 # Observer and weather info
 obs <-
-df <- merge()
+  df <- merge()
 
 d <- merge()
 
 # % forest cover (obtained from extracting % mean forest cover from GFC forest layers in each transect)
 forest <- 
-d <- merge()
+  d <- merge()
 
 # RunType = 0 specification codes (obtained from NWRC)
 run <-
-d <- merge()
-  
+  d <- merge()
+
 # Observer and weather info
 obs <-
-d <- merge()
+  d <- merge()
 
 ## Filter for my desired sites -----
 
@@ -138,3 +165,4 @@ write.csv()
 # assign spatial sites to temporal sites
 # get the lists for forest birds, BBL, forest cover, and ecozone
 # remove species that don't appear in either dataset
+# consolidate routes with >1 ecozone by referencing ArcMap
