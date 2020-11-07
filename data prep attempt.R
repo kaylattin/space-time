@@ -19,20 +19,6 @@ names(d8)[names(d8)=="statenum"] <- "StateNum"
 # Create one dataframe
 d <- rbind(d1,d2,d3,d4,d5,d6,d7,d8,d9,d10)
 
-# Load in bird codes
-names <- read.csv("BBSspecieslist.csv", header=T)
-code <- read.csv("BBLcodes.csv", header=T)
-
-# Load in list of forest species
-forest <- read.csv("forestbirdcodes.csv", header=T)
-
-# Match common names by AOU
-d <- merge(d, names, by="AOU")
-
-# Remove all "unid." species
-d %>% filter(!str_detect(Species, 'unid.'))
-
-
 # Convert Route to a RouteNum that combines State/Province number and the individual Route within the state:
 nrows <- length(d)
 
@@ -50,43 +36,43 @@ for(i in 1:nrows) {
 
 # Create unique transect column
 d$Transect <- paste(d$RouteNumber, d$Year, sep=".")
-d <- select(d, -c(Route, StateNum))
+d <- select(d, -c(Route, StateNum, RPID))
+d <- select(d, -c(16:55)) # delete stops 12 - 
 
+# Load in bird codes
+names <- read.csv("BBSspecieslist.csv", header=T)
+code <- read.csv("BBLcodes.csv", header=T)
 
-# Re-order some columns
-d %>% relocate(Transect,RouteNumber, COMMONNAME, .before = AOU) %>% head()
-d %>% relocate(Species_code, .before = AOU) %>% head()
-d %>% relocate(Forest_species, .after = AOU) %>% head()
-d <- select(d, -c(Seq, ORDER, Family, Genus, Species)) %>% head()
+# Load in list of forest species
+forest <- read.csv("forestbirdcodes.csv", header=T)
+
+# Match common names by AOU
+d <- merge(d, names, by="AOU")
 
 
 # Remove hybrids and subspecies & merge into 1 species
-# dark-eyed junco and yellow-throated warbler
-
+# northern flicker, dark-eyed junco and yellow-throated warbler
 d %>% filter(!str_detect(COMMONNAME, 'hybrid'))
 d %>% filter(!str_detect(COMMONNAME, 'unid.'))
-d$COMMONNAME[d$COMMONNAME %in% c("(Myrtle Warbler) Yellow-rumped Warbler", "(Audubon Warbler) Yellow-rumped Warbler")] <- "Yellow-rumped Warbler"
+d$COMMONNAME[d$COMMONNAME %in% c("(Myrtle Warbler) Yellow-rumped Warbler", "(Audubon's Warbler) Yellow-rumped Warbler")] <- "Yellow-rumped Warbler"
+d$COMMONNAME[d$COMMONNAME %in% c("(Yellow-shafted) Northern Flicker", "(Red-shafted) Northern Flicker")] <- "Northern Flicker"
 
 
 # Add in species codes and forest codes
 d$Species_code <- merge(code, d, by="COMMONNAME")
 d$Forest_species <- merge(forest, d, by="Species_code")
 
+d %>% relocate(Species_code, .before = AOU) %>% head()
+d %>% relocate(Forest_species, .after = AOU) %>% head()
+d <- select(d, -c(Seq, ORDER, Family, Genus, Species)) %>% head()
 
 # Select for only forest species
 df <- d[which(d$Forest == 1),]
 
-
-# Remove years before 2000
-df %>% filter()
-
-
-# Sum counts from stops 1 - 11 and discard the rest
-df$Count <- rowSums(a[,7:17])
-
-# Remove unnecessary columns
-df <- select(df, -c(RPID))
-df <- select(df, -c(8:50))
+# Sum across the 11 stops and summarize so only 1 count per species per transect 
+# deals with duplicate species produced by removal of hybrids above
+df$Count<-df$Stop1+df$Stop2+df$Stop3+df$Stop4+df$Stop5+df$Stop6+df$Stop7+df$Stop8+df$Stop9+df$Stop10+df$Stop11
+df %>% group_by(Transect, COMMONNAME) %>% summarize(Count = sum(Count))
 
 
 # Write Canada dataset
@@ -100,7 +86,6 @@ d$Species_code <- merge(code, d, by="Transect")
 
 
 # Remove years before 2000
-
 d %>% filter()
 
 
