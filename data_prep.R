@@ -30,6 +30,9 @@ nrows <- length(r$Route)
 
 pb <- winProgressBar(title="progress", min=0, max=nrows, width=300)
 
+nrows <- 3616858
+
+
 for(i in 1:nrows) {
   if(r$Route[i] < 100 & r$Route[i] > 10) {
     r$RouteNumber[i] <- paste(r$StateNum[i], r$Route[i], sep="0")
@@ -47,7 +50,11 @@ d <- merge(d, r, by = "RouteDataID")
 
 # Create unique transect column
 d$Transect <- paste(d$RouteNumber, d$Year, sep=".")
+
 d <- select(d, -c(StateNum.x, StateNum.y, Route.y, RPID))
+
+d <- select(d, -c(StateNum, RPID))
+
 d <- select(d, -c(17:55)) # delete stops 12 to 50 
 
 # Load in bird codes
@@ -74,6 +81,7 @@ d <- replace.value(d, "COMMONNAME", from = c("African Collared Dove (a.k.a Ringe
                    to = "African Collared Dove")
 d <- replace.value(d, "COMMONNAME", from = c("(Great White Heron) Great Blue Heron"), to = "Great Blue Heron")
 d <- replace.value(d, "COMMONNAME", from = c("(Harlan's Hawk) Red-tailed Hawk"), to = "Red-tailed Hawk")
+
 
 detach(package:anchors, unload=TRUE) # detach b/c package masks select() function from dplyr and need it later
 
@@ -114,6 +122,48 @@ ddf <- select(ddf, -c(SP, CONF, SPEC6, CONF6, COMMONNAME))
 # Select for only forest species
 ddf <- ddf[which(ddf$ForestDependent == 1),]
 
+detach(package:anchors, unload=TRUE) # detach b/c package masks select() function from dplyr and need it later
+
+# Create matching columns in the main frame & BBL code frame for species scientific name
+d$ScientificName <- paste(d$Genus, d$Species)
+names(code)[names(code)=="SCINAME"] <- "ScientificName"
+
+# Merge info on species codes and forest-dependent codes (0 == not forest dependent, 1 == forest dependent)
+d <- merge(d, code, by="COMMONNAME")
+names(d)[names(d) == "SPEC"] <- "SpeciesCode"
+
+names(forest)[names(forest) == "Code"] <- "SpeciesCode"
+names(forest)[names(forest) == "Forest.bird..0.no..1.yes."] <- "ForestDependent" 
+names(forest)[names(forest) == "Code.1"] <- "ForestCode"
+d <- merge(d, forest, by = "SpeciesCode")
+
+
+# Remove unid. observations and hybrids
+d <- d %>% filter(!str_detect(COMMONNAME, 'hybrid'))
+d <- d %>% filter(!str_detect(COMMONNAME, 'unid.'))
+
+save.image(file = "BBSwip.RData")
+
+### At this point, need to save workspace & restart R, reloading only the tidyverse pckg ----
+# Rearrange the data frame columns
+d <- select(d, -c(Seq, ORDER, Family, Genus, Species.x ,SP, CONF, SPEC6, CONF6,Species.y))
+d %>% relocate(Transect, SpeciesCode, ForestDependent, ForestCode, RouteNumber)
+
+
+# Select for only forest species
+df <- d[which(d$ForestDependent == 1),]
+
+# Sum across the 11 stops and summarize so only 1 count per species per transect 
+# deals with duplicate species produced by removal of hybrids above
+df$Count<-df$Stop1+df$Stop2+df$Stop3+df$Stop4+df$Stop5+df$Stop6+df$Stop7+df$Stop8+df$Stop9+df$Stop10+df$Stop11
+
+df$RouteNumber_n <- as.numeric(df$RouteNumber)
+new <- df %>% group_by(RouteNumber_n, Year, SpeciesCode)
+df <- select(df, -c(Stop1, Stop2, Stop3, Stop4, Stop5, Stop6, Stop7, Stop8, stop9, Stop10, Stop11))
+
+new <- aggregate(df$Count, by=list(df$RouteNumber_n, df$Year, df$SpeciesCode), FUN=sum)
+
+
 
 # Remove years before 2000
 ddf %>% filter(!str_detect(Year), c('1995, 1996, 1997, 1998, 1999'))
@@ -132,12 +182,26 @@ ecozone <- read.csv("ecozoneBBS.csv", header=T)
 df <- merge(df, ecozone, by = "Transect")
 
 # % forest cover (obtained from extracting % mean forest cover from GFC forest layers in each transect)
+
 forestcover <- read.csv("forestcover.csv", header=T) # this is the first sheet in the database
 names(forestcover)
 
 forestcover <- forest[, -21:-30]
 
-df <- merge(df, forestcover, by = "Transect")
+forest <- read.csv("forestcover.csv", header=T) # this is the first sheet in the database
+names(forest)
+
+forest <- forest[, -21:-30]
+
+# reformat to long
+# I would like a new variable, v.names="Forest cover", with the % estimates, which I get
+# by running through columns 2 to 20 (varying=2:20); I know which estimate I am reading by looking
+# at the column names (times=names(data)[2:20]), and capture estimate column names
+# in a new variable (timevar="Year")
+forest_long <- reshape(data,v.names="Forest cover",varying = 2:20,timevar="Year",times=names(data)[2:20],direction='long')
+
+
+df <- merge(df, forest_long, by = "Transect")
 
 # RunType = 0 specification codes (obtained from NWRC)
 run <-
