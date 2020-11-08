@@ -34,7 +34,9 @@ r <- select(r, -c(5:57))
 r <- select(r, -2)
 
 
-# Convert Route to a RouteNum that combines State/Province number and the individual Route within the state:
+# Convert Route to a RouteNum that combines State/Province number and the individual Route within the state
+# i.e. Statenum = 04 and Route = 001 becomes RouteNumber = 4001
+# StateNum goes up to 2 digits and Route goes up to 3 digits
 nrows <- length(r$Route)
 
 pb <- winProgressBar(title="progress", min=0, max=nrows, width=300)
@@ -59,11 +61,11 @@ d$Transect <- paste(d$RouteNumber, d$Year, sep=".")
 d <- select(d, -c(StateNum.x, StateNum.y, Route.y, RPID, placeholder))
 d <- select(d, -c(17:55)) # delete stops 12 to 50 
 
-# Load in bird codes
+# Load in BBS species list (originally .txt file from site) and BBL bird codes
 names <- read.csv("BBSspecieslist.csv", header=T)
 code <- read.csv("BBLcodes.csv", header=T)
 
-# Load in list of forest species
+# Load in list of coded forest species
 forest <- read.csv("forestbirdcodes.csv", header=T)
 
 # Match common names by AOU
@@ -84,6 +86,7 @@ d <- replace.value(d, "COMMONNAME", from = c("(Slate-colored Junco) Dark-eyed Ju
                                  "(White-winged Junco) Dark-eyed Junco", "(Gray-headed Junco) Dark-eyed Junco", "(unid. race) Dark-eyed Junco"),
                    to = "Dark-eyed Junco")
 
+## others that aren't forest birds but for the sake of consistency
 d <- replace.value(d, "COMMONNAME", from = c("African Collared Dove (a.k.a Ringed Turtle-Dove"),
                    to = "African Collared Dove")
 d <- replace.value(d, "COMMONNAME", from = c("(Great White Heron) Great Blue Heron"), to = "Great Blue Heron")
@@ -96,12 +99,12 @@ detach(package:anchors, unload=TRUE) # detach b/c package masks select() functio
 dd <- d %>% filter(!str_detect(COMMONNAME, 'hybrid'))
 dd <- d %>% filter(!str_detect(COMMONNAME, 'unid.'))
 
-# Bring in BBL codes
+# Bring in BBL codes using ScientificName (less variability in capitalization and hyphenation possible compared to using Common Name spelling)
 d$ScientificName <- paste(d$Genus, d$Species)
 names(code)[names(code) == "SCINAME"] <- "ScientificName"
 df <- merge(d, code, by="ScientificName", all.x = TRUE)
 
-# Merge info on species codes and forest-dependent codes (0 == not forest dependent, 1 == forest dependent)
+# Merge info on species codes 0 == obligate, 1 == edge, 2 == shrub, 3 == not associated with forests
 names(df)[names(df) == "SPEC"] <- "SpeciesCode"
 names(code)[names(code) == "SPEC"] <- "SpeciesCode"
 names(forest)[names(forest) == "Code"] <- "SpeciesCode"
@@ -121,7 +124,7 @@ df$Count<-df$Stop1+df$Stop2+df$Stop3+df$Stop4+df$Stop5+df$Stop6+df$Stop7+df$Stop
 df$RouteNumber <- as.numeric(df$RouteNumber)
 summarize_df <- df %>% group_by(Transect, RouteNumber, Year, CountryNum, SpeciesCode, ForestCode) %>% summarize(Count = sum(Count))
 
-# Select for only forest species
+# Select for only forest species 0 == forest obligate, 1 == edge
 ddf <- summarize_df[which(summarize_df$ForestCode == c(0,1)),]
 
 # Remove years before 2000
@@ -138,7 +141,7 @@ write.csv(canada_df,"canadaBBSdataset_R.csv")
 #   ADDING IN MORE INFO   |
 # ------------------------#
 
-# % forest cover -------------------------
+#### FOREST COVER -------------------------
 # obtained from extracting % mean forest cover from GFC forest layers in each transect
 forestcover <- read.csv("FORESTCOVER_wide.csv", header=T, check.names = FALSE)
 
@@ -152,12 +155,13 @@ newforest$Transect <- paste(newforest$RouteNumber, newforest$Year, sep=".")
 canada_df <- merge(canada_df, newforest, by = "Transect")
 names(canada_df)[names(canada_df) == "RouteNumber.x"] <- "RouteNumber"
 
-# ecozone (obtained from ArcMap overlay) --------------------------
+### ECOZONE (obtained from ArcMap overlay) --------------------------
 ecozone <- read.csv("AllTransects_Ecozones.csv", header=T)
 ecozone <- select(ecozone, -c(cv2018_, AREA, PERIMETER))
 canada_df <- merge(canada_df, ecozone, by = "RouteNumber")
 
-# Observer and weather info -------------------------
+
+#### OBSERVER AND WEATHER (downloaded from BBS site) -------------------------
 obs <- read.csv("observerinfo_raw.csv", header=T)
 
 # Create unique placeholder ID for statenum + route
@@ -168,7 +172,10 @@ r <- distinct(obs, StateNum, Route, .keep_all = TRUE)
 r <- select(r, -c(5:21))
 r <- select(r, -2)
 
-# Convert Route to a RouteNum that combines State/Province number and the individual Route within the state:
+# Convert Route to a RouteNum that combines State/Province number and the individual Route within the state
+# i.e. Statenum = 04 and Route = 001 becomes RouteNumber = 4001
+# StateNum goes up to 2 digits and Route goes up to 3 digits
+
 nrows <- length(r$Route)
 
 pb <- winProgressBar(title="progress", min=0, max=nrows, width=300)
@@ -186,16 +193,21 @@ for(i in 1:nrows) {
   Sys.sleep(0.1); setWinProgressBar(pb,i,title=paste("Row:", i, "out of", nrows, "done"))
 }
 close(pb)
-obs_d <- merge(obs, r, by = "placeholder", keep.all = FALSE)
+obs <- merge(obs, r, by = "placeholder", keep.all = FALSE)
+obs$Transect <- paste(obs$RouteNumber, obs$Year, sep=".")
+obs <- select(obs, c(Transect, ObsN, RouteNumber, Year, StartWind, RunType))
+
+# Remove years before 2000
+obs <- obs[which(obs$Year > 1999),]
+obs <- obs[order(obs$RouteNumber),]
+
+canada_df_o <- merge(canada_df, obs, by = "Transect", keep.all = FALSE)
 
 
-obs <- select(obs, c(Transect, ObsN,StartWind))
-canada_df <- merge()
-
-
-# RunType = 0 specification codes (obtained from NWRC) ---------------------
+# RUNTYPE = 0 specification codes (obtained from NWRC) ---------------------
 run <- read.csv("RunType_NWRC.csv", header=T)
-canada_df <- merge()
+names(run)[names(run) == "RunType"] <- "RunType=0"
+canada_df <- merge(keep.all = TRUE)
 
 
 write.csv()
