@@ -206,11 +206,12 @@ canada_df_T <- merge(canada_df, obs, by = "Transect", no.dups = TRUE)
 
 # RUNTYPE = 0 specification codes (obtained from NWRC) ---------------------
 run <- read.csv("RunType_NWRC.csv", header=T)
-names(run)[names(run) == "RunType"] <- "RunType=0"
-canada_df <- merge(keep.all = TRUE)
+names(run)[names(run) == "RouteNo"] <- "RouteNumber"
+canada_df_T <- merge(canada_df_T, run, keep.all = TRUE, no.dups = TRUE)
 
+canada_df_T <- select(canada_df_T, -c(Year.x, Year.y, id, RouteNumber.y, RouteNumber.x, State, Route))
 
-write.csv()
+write.csv(canada_df_T, "complete_canada_dataset.csv")
 
 
 ## next steps:
