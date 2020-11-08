@@ -158,7 +158,7 @@ names(canada_df)[names(canada_df) == "RouteNumber.x"] <- "RouteNumber"
 ### ECOZONE (obtained from ArcMap overlay) --------------------------
 ecozone <- read.csv("AllTransects_Ecozones.csv", header=T)
 ecozone <- select(ecozone, -c(cv2018_, AREA, PERIMETER))
-canada_df <- merge(canada_df, ecozone, by = "RouteNumber")
+canada_df <- merge(canada_df, ecozone, by = "RouteNumber", no.dups = TRUE)
 
 
 #### OBSERVER AND WEATHER (downloaded from BBS site) -------------------------
@@ -195,13 +195,13 @@ for(i in 1:nrows) {
 close(pb)
 obs <- merge(obs, r, by = "placeholder", keep.all = FALSE)
 obs$Transect <- paste(obs$RouteNumber, obs$Year, sep=".")
-obs <- select(obs, c(Transect, ObsN, RouteNumber, Year, StartWind, RunType))
+obs <- select(obs, c(Transect, ObsN, RouteNumber, Year, StartWind, RunType.x))
 
 # Remove years before 2000
 obs <- obs[which(obs$Year > 1999),]
 obs <- obs[order(obs$RouteNumber),]
 
-canada_df_o <- merge(canada_df, obs, by = "Transect", keep.all = FALSE)
+canada_df_T <- merge(canada_df, obs, by = "Transect", no.dups = TRUE)
 
 
 # RUNTYPE = 0 specification codes (obtained from NWRC) ---------------------
