@@ -125,10 +125,10 @@ write.csv(df, "clean_up_species.csv")
 # ------------------------#
 
 df <- read.csv("clean_up_species.csv")
-df$Transect <- paste(d$RouteNumber, d$Year, sep=".")
+df$Transect <- paste(df$RouteNumber, df$Year, sep=".")
 
 # Sum across the 11 stops and summarize so only 1 count per species per transect 
-# deals with duplicate species produced by removal of hybrids above
+# deals with duplicate species produced by merging of subspecies & hybrids above
 df$Count<-df$Stop1+df$Stop2+df$Stop3+df$Stop4+df$Stop5+df$Stop6+df$Stop7+df$Stop8+df$Stop9+df$Stop10+df$Stop11
 df$RouteNumber <- as.numeric(df$RouteNumber)
 summarize_df <- df %>% group_by(Transect, RouteNumber, Year, CountryNum, SpeciesCode, ForestCode) %>% summarize(Count = sum(Count))
