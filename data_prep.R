@@ -74,7 +74,10 @@ write.csv(d, "prep_raw_data.csv")
 # ------------------------#
 
 d <- read.csv("prep_raw_data.csv")
-code <- read.csv("BBLcodes_withAOU.csv", header=T)
+d$Transect <- paste(d$RouteNumber, d$Year, sep=".")
+
+code <- read.csv("BBLcodes.csv", header=T)
+code <- select(code, -c(SP, CONF, SPEC6, CONF6))
 
 # Merge subspecies into 1 species for northern flicker, dark-eyed junco and yellow-rumped warbler
 library(anchors)
@@ -91,6 +94,7 @@ d <- replace.value(d, "COMMONNAME", from = c("African Collared Dove (a.k.a Ringe
                    to = "African Collared Dove")
 d <- replace.value(d, "COMMONNAME", from = c("(Great White Heron) Great Blue Heron"), to = "Great Blue Heron")
 d <- replace.value(d, "COMMONNAME", from = c("(Harlan's Hawk) Red-tailed Hawk"), to = "Red-tailed Hawk")
+d <- replace.value(d, "COMMONNAME", from = c("(Black Brant"), to = "Brant")
 
 detach(package:anchors, unload=TRUE) # detach b/c package masks select() function from dplyr and need it later
 
@@ -99,8 +103,8 @@ detach(package:anchors, unload=TRUE) # detach b/c package masks select() functio
 dd <- d %>% filter(!str_detect(COMMONNAME, 'hybrid'))
 dd <- d %>% filter(!str_detect(COMMONNAME, 'unid.'))
 
-# Bring in BBL codes using AOU
-df <- merge(dd, code, by="AOU", all.x = TRUE)
+# Bring in BBL codes using Common Name
+df <- merge(dd, code, by="COMMONNAME", all.x = TRUE)
 
 # Merge info on species codes 0 == obligate, 1 == edge, 2 == shrub, 3 == not associated with forests
 # Load in list of coded forest species
@@ -120,6 +124,9 @@ write.csv(df, "clean_up_species.csv")
 #    CANADA FILTERING     |
 # ------------------------#
 
+df <- read.csv("clean_up_species.csv")
+df$Transect <- paste(d$RouteNumber, d$Year, sep=".")
+
 # Sum across the 11 stops and summarize so only 1 count per species per transect 
 # deals with duplicate species produced by removal of hybrids above
 df$Count<-df$Stop1+df$Stop2+df$Stop3+df$Stop4+df$Stop5+df$Stop6+df$Stop7+df$Stop8+df$Stop9+df$Stop10+df$Stop11
@@ -136,6 +143,7 @@ ddf <- ddf[which(ddf$Year > 1999),]
 ddf <- ddf[order(ddf$RouteNumber),]
 
 # Write Canada dataset
+# == 372072 obs
 canada_df <- ddf[which(ddf$CountryNum == 124),]
 
 write.csv(canada_df,"canadaBBSdataset_R.csv")
@@ -149,6 +157,7 @@ write.csv(canada_df,"canadaBBSdataset_R.csv")
 setwd("/Users/Kayla/Documents/BBS data")
 library(tidyverse)
 canada_df <- read.csv("canadaBBSdataset_R.csv")
+canada_df$Transect <- paste(canada_df$RouteNumber, canada_df$Year, sep=".")
 #### FOREST COVER -------------------------
 # obtained from extracting % mean forest cover from GFC forest layers in each transect
 forestcover <- read.csv("FORESTCOVER_wide.csv", header=T, check.names = FALSE)
@@ -164,12 +173,14 @@ newforest <- reshape(forestcover,v.names="Forest cover",varying = 3:21, timevar=
 newforest$Transect <- paste(newforest$RouteNumber, newforest$Year, sep=".")
 canada_df <- merge(canada_df, newforest, by = "Transect")
 names(canada_df)[names(canada_df) == "RouteNumber.x"] <- "RouteNumber"
+names(canada_df)[names(canada_df) == "Year.x"] <- "Year"
 canada_df <- merge(canada_df, change, by = "RouteNumber")
+canada_df <- select(canada_df, -c(RouteNumber.y, Year.y, FID, id))
 
 ### ECOZONE (obtained from ArcMap overlay) --------------------------
 ecozone <- read.csv("AllTransects_Ecozones.csv", header=T)
 ecozone <- select(ecozone, -c(cv2018_, AREA, PERIMETER))
-canada_df <- merge(canada_df, ecozone, by = "RouteNumber", no.dups = TRUE)
+canada_df <- merge(canada_df, ecozone, by = "RouteNumber")
 
 
 #### OBSERVER AND WEATHER (downloaded from BBS site) -------------------------
@@ -211,9 +222,11 @@ obs <- select(obs, c(Transect, ObsN, RouteNumber, Year, StartWind, RunType.x))
 obs <- obs[which(obs$Year > 1999),]
 obs <- obs[order(obs$RouteNumber),]
 
-canada_df <- select(canada_df, -RouteNumber.y)
 canada_df_T <- merge(canada_df, obs, by = "Transect", all.x = FALSE)
-canada_df_T <- select(canada_df_T, -c(Year.x, Year.y))
+names(canada_df_T)[names(canada_df_T) == "RunType.x"] <- "RunType"
+names(canada_df_T)[names(canada_df_T) == "RouteNumber.x"] <- "RouteNumber"
+canada_df_T <- select(canada_df_T, -c(RouteNumber.y, Year.x))
+names(canada_df_T)[names(canada_df_T) == "Year.y"] <- "Year"
 
 # RUNTYPE = 0 specification codes (obtained from NWRC) ---------------------
 run <- read.csv("RunType_NWRC.csv", header=T)
@@ -221,10 +234,9 @@ names(run)[names(run) == "RouteNo"] <- "RouteNumber"
 run$Transect <- paste(run$RouteNumber, run$Year, sep = ".")
 canada_df_T <- merge(canada_df_T, run, by = "Transect", all.x = TRUE)
 
-canada_df_T <- select(canada_df_T, -c(Year.y, X, FID, id, RouteNumber, RouteNumber.y, State, Route))
+canada_df_T <- select(canada_df_T, -c(Year, RouteNumber.y, State, Route))
+names(canada_df_T)[names(canada_df_T) == "Year.y"] <- "Year"
 names(canada_df_T)[names(canada_df_T) == "RouteNumber.x"] <- "RouteNumber"
-names(canada_df_T)[names(canada_df_T) == "RunType.x"] <- "RunType"
-names(canada_df_T)[names(canada_df_T) == "Year.x"] <- "Year"
 
 write.csv(canada_df_T, "complete_canada_dataset.csv")
 
