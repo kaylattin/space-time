@@ -213,7 +213,7 @@ obs <- obs[order(obs$RouteNumber),]
 
 canada_df <- select(canada_df, -RouteNumber.y)
 canada_df_T <- merge(canada_df, obs, by = "Transect", all.x = FALSE)
-canada_df_T <- select(canada_df_T, -RouteNumber.y)
+canada_df_T <- select(canada_df_T, -c(Year.x, Year.y))
 
 # RUNTYPE = 0 specification codes (obtained from NWRC) ---------------------
 run <- read.csv("RunType_NWRC.csv", header=T)
@@ -221,7 +221,10 @@ names(run)[names(run) == "RouteNo"] <- "RouteNumber"
 run$Transect <- paste(run$RouteNumber, run$Year, sep = ".")
 canada_df_T <- merge(canada_df_T, run, by = "Transect", all.x = TRUE)
 
-canada_df_T <- select(canada_df_T, -c(Year.x, Year.y, id, RouteNumber, State, Route, FID))
+canada_df_T <- select(canada_df_T, -c(Year.y, X, FID, id, RouteNumber, RouteNumber.y, State, Route))
+names(canada_df_T)[names(canada_df_T) == "RouteNumber.x"] <- "RouteNumber"
+names(canada_df_T)[names(canada_df_T) == "RunType.x"] <- "RunType"
+names(canada_df_T)[names(canada_df_T) == "Year.x"] <- "Year"
 
 write.csv(canada_df_T, "complete_canada_dataset_3.csv")
 
