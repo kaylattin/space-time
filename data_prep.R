@@ -62,16 +62,19 @@ d <- select(d, -c(StateNum.x, StateNum.y, Route.y, RPID, placeholder))
 d <- select(d, -c(17:55)) # delete stops 12 to 50 
 
 # Load in BBS species list (originally .txt file from site) and BBL bird codes
-names <- read.csv("BBSspecieslist.csv", header=T)
-code <- read.csv("BBLcodes.csv", header=T)
+names <- read.csv("speciesListBBS.csv", header=T)
 
 # Match common names by AOU
 d <- merge(d, names, by="AOU")
 
+write.csv(d, "prep_raw_data.csv")
 
 # ------------------------#
 #    CLEAN UP SPECIES     |
 # ------------------------#
+
+d <- read.csv("prep_raw_data.csv")
+code <- read.csv("BBLcodes_withAOU.csv", header=T)
 
 # Merge subspecies into 1 species for northern flicker, dark-eyed junco and yellow-rumped warbler
 library(anchors)
@@ -89,7 +92,6 @@ d <- replace.value(d, "COMMONNAME", from = c("African Collared Dove (a.k.a Ringe
 d <- replace.value(d, "COMMONNAME", from = c("(Great White Heron) Great Blue Heron"), to = "Great Blue Heron")
 d <- replace.value(d, "COMMONNAME", from = c("(Harlan's Hawk) Red-tailed Hawk"), to = "Red-tailed Hawk")
 
-
 detach(package:anchors, unload=TRUE) # detach b/c package masks select() function from dplyr and need it later
 
 # Remove unid. observations and hybrids
@@ -97,10 +99,8 @@ detach(package:anchors, unload=TRUE) # detach b/c package masks select() functio
 dd <- d %>% filter(!str_detect(COMMONNAME, 'hybrid'))
 dd <- d %>% filter(!str_detect(COMMONNAME, 'unid.'))
 
-# Bring in BBL codes using ScientificName (less variability in capitalization and hyphenation possible compared to using Common Name spelling)
-dd$ScientificName <- paste(dd$Genus, dd$Species)
-names(code)[names(code) == "SCINAME"] <- "ScientificName"
-df <- merge(dd, code, by="ScientificName", all.x = TRUE)
+# Bring in BBL codes using AOU
+df <- merge(dd, code, by="AOU", all.x = TRUE)
 
 # Merge info on species codes 0 == obligate, 1 == edge, 2 == shrub, 3 == not associated with forests
 # Load in list of coded forest species
@@ -114,7 +114,7 @@ names(forest)[names(forest) == "Code.1"] <- "ForestCode"
 
 df <- merge(df, forest, by = "SpeciesCode", all.x = TRUE)
 
-write.csv(df, "df_progress.csv")
+write.csv(df, "clean_up_species.csv")
 
 # ------------------------#
 #    CANADA FILTERING     |
@@ -226,7 +226,7 @@ names(canada_df_T)[names(canada_df_T) == "RouteNumber.x"] <- "RouteNumber"
 names(canada_df_T)[names(canada_df_T) == "RunType.x"] <- "RunType"
 names(canada_df_T)[names(canada_df_T) == "Year.x"] <- "Year"
 
-write.csv(canada_df_T, "complete_canada_dataset_3.csv")
+write.csv(canada_df_T, "complete_canada_dataset.csv")
 
 
 ## next steps:
