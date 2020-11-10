@@ -39,6 +39,7 @@ r <- select(r, -2)
 # StateNum goes up to 2 digits and Route goes up to 3 digits
 nrows <- length(r$Route)
 
+createRouteNumber <- function(x) {
 pb <- winProgressBar(title="progress", min=0, max=nrows, width=300)
 
 for(i in 1:nrows) {
@@ -54,6 +55,9 @@ for(i in 1:nrows) {
   Sys.sleep(0.1); setWinProgressBar(pb,i,title=paste("Row:", i, "out of", nrows, "done"))
 }
 close(pb)
+}
+
+createRouteNumber(r)
 d <- merge(d, r, by = "placeholder")
 
 # Create unique transect column
@@ -165,10 +169,6 @@ change <- select(forestcover, c(RouteNumber, Change))
 forestcover <- select(forestcover, -Change)
 
 # reformat to long
-# I would like a new variable, v.names="Forest cover", with the % estimates, which I get
-# by running through columns 2 to 20 (varying=3:21); I know which estimate I am reading by looking
-# at the column names (times=names(data)[2:20]), and capture estimate column names
-# in a new variable (timevar="Year")
 newforest <- reshape(forestcover,v.names="Forest cover",varying = 3:21, timevar="Year",times=names(forestcover)[3:21],direction='long')
 newforest$Transect <- paste(newforest$RouteNumber, newforest$Year, sep=".")
 canada_df <- merge(canada_df, newforest, by = "Transect")
@@ -198,22 +198,7 @@ r <- select(r, -2)
 # i.e. Statenum = 04 and Route = 001 becomes RouteNumber = 4001
 # StateNum goes up to 2 digits and Route goes up to 3 digits
 nrows <- length(r$Route)
-
-pb <- winProgressBar(title="progress", min=0, max=nrows, width=300)
-
-for(i in 1:nrows) {
-  if(r$Route[i] < 100 & r$Route[i] >= 10) {
-    r$RouteNumber[i] <- paste(r$StateNum[i], r$Route[i], sep="0")
-  } 
-  else if(r$Route[i] < 10) {
-    r$RouteNumber[i] <- paste(r$StateNum[i], r$Route[i], sep="00")
-  }
-  else {
-    r$RouteNumber[i] <- paste(r$StateNum[i], r$Route[i], sep="")
-  }
-  Sys.sleep(0.1); setWinProgressBar(pb,i,title=paste("Row:", i, "out of", nrows, "done"))
-}
-close(pb)
+createRouteNumber(r)
 obs <- merge(obs, r, by = "placeholder", all.x = FALSE)
 obs$Transect <- paste(obs$RouteNumber, obs$Year, sep=".")
 obs <- select(obs, c(Transect, ObsN, RouteNumber, Year, StartWind, RunType.x))
@@ -239,21 +224,6 @@ names(canada_df_T)[names(canada_df_T) == "Year.y"] <- "Year"
 names(canada_df_T)[names(canada_df_T) == "RouteNumber.x"] <- "RouteNumber"
 
 write.csv(canada_df_T, "complete_canada_dataset.csv")
-
-
-## next steps:
-# identify sites >20% change from 2000 to 2018 = temporal sites
-# from these sites, identify those that are >5 years of data
-
-# filtering out spatial sites without data in 2018
-# for each temporal site, identify list of spatial sites that cover same gradient of % cover in the same ecozone
-# create 2 datasets - one temporal and one spatial
-
-
-## things I still have to do manually:
-# get the lists for forest birds, BBL codes, forest cover from ArcGIS, ecozone from ArcMap, runtype from NWRC
-# remove species that don't appear in either dataset - I can probably filter these out here, but the id process is in excel
-#### or I can use aggregate to identify species with count = 0 across all routes in each temporal and spatial dataset
 
 
 ## final step:
