@@ -5,8 +5,6 @@ library(ggmcmc)
 dat <- read.csv("complete_21_ND_OCT28.csv")
 dat_obs <- read.csv("FINAL_OBSERVER_DATASET.csv", fileEncoding="UTF-8-BOM")
 
-#load("thesis_model_KA.RData")
-
 ### set up main analysis data
 space.time <- dat$space.time # categorical
 region <- dat$Region # categorical
@@ -55,7 +53,7 @@ sd_noiset ~ dt(0, 1, 20) T(0,) # absolute value (truncated >0 ) of student's-t c
 sd_noise <- 0.1*sd_noiset # puts 95% of sdnoise below ~0.5 on the log scale
 taunoise <- pow(sd_noise, -2) # converts back to precision (inverse of variance)
 
-sd_route ~ dt(0, 1, 4) T(0,)
+sd_route ~ dt(0, 1, 4) T(0,) # 95% below ~0.1 on the log scale
 tau_route <- pow(sd_route, -2)
   
 sd_obs ~ dt(0, 1, 4) T(0,)
@@ -64,7 +62,7 @@ tau_obs <- pow(sd_obs, -2)
 sd_noise_obs ~ dt(0, 1, 4) T(0,)
 tau_noise_obs <- pow(sd_noise_obs, -2)
     
-sd_beta_modt ~ dt(0,1,4) T(0,)
+sd_beta_modt ~ dt(0, 1, 4) T(0,)
 sd_beta_mod <- 0.1 * sd_beta_modt
 tau_beta_mod <- pow(sd_beta_mod, -2)
 
@@ -112,20 +110,21 @@ for(g in 1:nregions){
   alpha_bar[g] ~ dnorm(0,1) # weakly informative prior on REGION intercept
   
   for(s in 1:nspecies){
-    alpha[g,s] ~ dnorm(alpha_bar[g], tau_species[g]) # region-level intercept for species-s, centered on region-level mean
+    alpha[g,s] ~ dnorm(alpha_bar[g], tau_species[s]) # region-level intercept for species-s, centered on region-level mean
+    
+    ## priors on alpha vars
+  sd_speciest[s] ~ dt(0, 1, 20) T(0,) 
+  sd_species[s] <- 0.1*sd_speciest[s]
+  tau_species[s] <- pow(sd_species[s], -2) # prior on precision
   }
-  
-## priors on alpha vars
-  sd_speciest[g] ~ dt(0, 1, 20) T(0,) 
-  sd_species[g] <- 0.1*sd_speciest[g]
-  tau_species[g] <- pow(sd_species[g], -2) # prior on precision
 
  ## priors on beta
 beta_mod[g] ~ dnorm(0, tau_beta_mod)
 beta_space_time[g,1] ~ dnorm(0,0.01) # or beta_space_time[g,1] ~ dnorm(0,tau.beta_space_time) if random effect
 beta_space_time[g,2] <- beta_space_time[g,1] + beta_mod[g] # space slope == 2
 
-beta_diff[g] <- beta_space_time[g,1] - beta_space_time[g,2]
+# beta_space_time[g,2] ~ dnorm(0,0.01)
+
 }
 
 }
@@ -147,7 +146,7 @@ jags_dat <- list('count' = count,
                  'nobservers' = nobservers,
                  # observer
                  'count_obs' = count_obs,
-                 'obs' = observer,
+                 'obs' = obs,
                  'species_obs' = species_obs,
                  'route' = route,
                  'ecozone' = ecozone,
@@ -161,10 +160,11 @@ jags_dat <- list('count' = count,
 # skipping wind for now b/c it's so big
 parms <- c("beta_space_time",
            "sd_noise",
-           "alpha-bar",
+           "alpha_bar",
            "sd_species",
            "alpha",
            "beta_mod",
+           "beta_wind",
            "sd_beta_mod",
            "beta_diff",
            "sd_noise_obs",
@@ -179,13 +179,13 @@ memory.limit(56000)
 x = jagsUI(data = jags_dat,
                    parameters.to.save = parms,
                    n.chains = 3,
-                   n.adapt = 1000,
-                   n.burnin = 10000,
+                   n.adapt = 2000,
+                   n.burnin = 20000,
                    n.thin = 100,
-                   n.iter = 110000,
+                   n.iter = 220000,
                    parallel = T,
                    modules = NULL,
-                   model.file = "space_time_DATA.r")
+                   model.file = "space_time_DATA_2.r")
 
 library(rlist)
 list.save(x,"data_rawoutput.RData")
@@ -194,27 +194,27 @@ list.save(x,"data_rawoutput.RData")
 summary(x)
 print(x)
 x$mean$beta_space_time #posterior means of the slope parameters
-x$mean$beta_diff
-
+x$mean$beta_mod
+x$n.eff
 
 # have to do them separately b/c not enough memory
 # set out = x to ease re-loading the .rdata file across different sessions
 out_ggs_beta_space_time = ggs(x$samples,  family = "beta_space_time")
 out_ggs_beta_mod = ggs(x$samples,  family = "beta_mod")
 out_ggs_beta_diff = ggs(x$samples, family = "beta_diff")
-# out_ggs_beta_wind = ggs(x$samples,  family = "beta_wind") # really huge
+out_ggs_beta_wind = ggs(x$samples,  family = "beta_wind") # really huge
 
 out_ggs_sd_beta_mod = ggs(x$samples, family = "sd_beta_mod")
 out_ggs_sd_noise = ggs(x$samples, family = "sd_noise")
 out_ggs_obs_offset = ggs(x$samples, family = "obs_offset")
 out_ggs_sd_noise_obs = ggs(x$samples, family = "sd_noise_obs")
 
-ggmcmc(out_ggs_beta_space_time,file = "beta_space_time_summary_SIM.pdf", family = "beta_space_time", param_page = 8)
-ggmcmc(out_ggs_beta_mod,file = "beta_mod_summary_SIM.pdf", family = "beta_mod", param_page = 8)
-ggmcmc(out_ggs_beta_diff,file = "beta_diff_summary_SIM.pdf", family = "beta_diff", param_page = 8)
-# ggmcmc(out_ggs_beta_wind,file = "beta_wind_summary_SIM.pdf", family = "beta_wind", param_page = 8)
+ggmcmc(out_ggs_beta_space_time,file = "beta_space_time_summary_DATA_2.pdf", family = "beta_space_time", param_page = 8)
+ggmcmc(out_ggs_beta_mod,file = "beta_mod_summary_DATA_2.pdf", family = "beta_mod", param_page = 8)
+ggmcmc(out_ggs_beta_diff,file = "beta_diff_summary_DATA_2.pdf", family = "beta_diff", param_page = 8)
+ggmcmc(out_ggs_beta_wind,file = "beta_wind_summary_SIM.pdf", family = "beta_wind", param_page = 8)
 
-ggmcmc(out_ggs_sd_beta_mod,file = "sd_beta_mod_summary_SIM.pdf", family = "sd_beta_mod", param_page = 8)
-ggmcmc(out_ggs_sd_noise,file = "sd_noise_summary_SIM.pdf", family = "sd_noise", param_page = 8)
-ggmcmc(out_ggs_obs_offset,file = "obs_offset_summary_SIM.pdf", family = "obs_offset", param_page = 8)
-ggmcmc(out_ggs_sd_noise_obs,file = "sd_noise_obs_summary_SIM.pdf", family = "sd_noise_obs", param_page = 8)
+ggmcmc(out_ggs_sd_beta_mod,file = "sd_beta_mod_summary_DATA_2.pdf", family = "sd_beta_mod", param_page = 8)
+ggmcmc(out_ggs_sd_noise,file = "sd_noise_summary_DATA_2.pdf", family = "sd_noise", param_page = 8)
+ggmcmc(out_ggs_obs_offset,file = "obs_offset_summary_DATA_2.pdf", family = "obs_offset", param_page = 8)
+ggmcmc(out_ggs_sd_noise_obs,file = "sd_noise_obs_summary_DATA_2.pdf", family = "sd_noise_obs", param_page = 8)
