@@ -193,7 +193,7 @@ forest_long$Transect <- paste(forest_long$RouteNumber, forest_long$Year, sep="."
 forest_long <- select(forest_long, -c(RouteNumber, Year, id))
   
 canada_df <- merge(canada_df, forest_long, by = "Transect")
-
+canada_df <- merge(canada_df, change, by = "RouteNumber")
 
 
 
@@ -239,7 +239,7 @@ close(pb)
 r <- select(r, -c(RouteDataID, StateNum, Route, RunType))
 obs <- merge(obs, r, by = "placeholder", all.x = FALSE)
 obs$Transect <- paste(obs$RouteNumber, obs$Year, sep=".")
-obs <- select(obs, c(Transect, ObsN, StartWind, RunType))
+obs <- select(obs, c(Transect, ObsN, StateNum, StartWind, RunType))
 
 
 canada_df <- merge(canada_df, obs, by = "Transect", all.x = FALSE)
@@ -254,6 +254,16 @@ run <- select(run, -c(RouteNumber, State, Route, Year))
 
 
 canada_df<- merge(canada_df, run, by = "Transect", all.x = TRUE)
+
+
+## Add province names for ease later
+StateNum <- c(4, 11, 45, 56, 57, 65, 68, 75, 76, 79)
+prov <- c("Alberta", "British Columbia", "Manitoba", "New Brunswick", "Newfoundland & Labrador", "Nova Scotia", "Ontario", "Prince Edward Island", "Quebec", "Saskatchewan")
+provinces <- data.frame(StateNum, prov)
+
+canada_df <- merge(canada_df, provinces, by = "StateNum")
+
+
 
 
 write.csv(canada_df, "complete_canada_dataset.csv")
