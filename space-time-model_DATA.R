@@ -42,6 +42,8 @@ nroutes_obs <- length(unique(route)) # number of routes
 nspecies_obs <- length(unique(species_obs)) # number of species in observer dataset
 necozones_obs <- length(unique(ecozone)) # number of ecozones
 
+inits <- list(sd_beta_mod = 1, sd_noise = 1)
+
 ###############################
 #    MODEL CODE!!!            #
 ###############################
@@ -178,11 +180,12 @@ memory.limit(56000)
 
 x = jagsUI(data = jags_dat,
                    parameters.to.save = parms,
-                   n.chains = 3,
+                   n.chains = 4,
                    n.adapt = 2000,
-                   n.burnin = 20000,
-                   n.thin = 100,
-                   n.iter = 220000,
+                   n.burnin = 20000, # discard half the iterations re: gelman 
+                   n.thin = 50, # keep more
+                   inits = inits,
+                   n.iter = 40000,
                    parallel = T,
                    modules = NULL,
                    model.file = "space_time_DATA_2.r")
