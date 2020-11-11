@@ -1,6 +1,23 @@
 setwd("/Users/Kayla/Documents/BBS data")
 
 library(tidyverse)
+# Load in list of coded forest species
+forest <- read.csv("forestbirdcodes.csv", header=T)
+# Load in BBS species list (originally .txt file from site) and BBL bird codes
+names <- read.csv("speciesListBBS.csv", header=T)
+
+code <- read.csv("BBLcodes.csv", header=T)
+
+forestcover <- read.csv("FORESTCOVER_wide.csv", header=T, check.names = FALSE)
+
+ecozone <- read.csv("AllTransects_Ecozones.csv", header=T)
+
+obs <- read.csv("observerinfo_raw.csv", header=T)
+
+run <- read.csv("RunType_NWRC.csv", header=T)
+
+
+
 
 
 # ------------------------#
@@ -39,7 +56,6 @@ r <- select(r, -2)
 # StateNum goes up to 2 digits and Route goes up to 3 digits
 nrows <- length(r$Route)
 
-createRouteNumber <- function(x) {
 pb <- winProgressBar(title="progress", min=0, max=nrows, width=300)
 
 for(i in 1:nrows) {
@@ -55,36 +71,38 @@ for(i in 1:nrows) {
   Sys.sleep(0.1); setWinProgressBar(pb,i,title=paste("Row:", i, "out of", nrows, "done"))
 }
 close(pb)
-}
 
-createRouteNumber(r)
-d <- merge(d, r, by = "placeholder")
+r <- select(r, -c(RouteDataID, Route, StateNum))
+d <- inner_join(d, r, by = "placeholder")
 
 # Create unique transect column
 d$Transect <- paste(d$RouteNumber, d$Year, sep=".")
-d <- select(d, -c(StateNum.x, StateNum.y, Route.y, RPID, placeholder))
+d <- select(d, -c(RPID, placeholder))
 d <- select(d, -c(17:55)) # delete stops 12 to 50 
 
-# Load in BBS species list (originally .txt file from site) and BBL bird codes
-names <- read.csv("speciesListBBS.csv", header=T)
-
 # Match common names by AOU
-d <- merge(d, names, by="AOU")
+names <- select(names, -c(Seq, ORDER, Family, Genus, Species))
+d <- inner_join(d, names, by="AOU")
+
+
 
 write.csv(d, "prep_raw_data.csv")
+
+
+
 
 # ------------------------#
 #    CLEAN UP SPECIES     |
 # ------------------------#
 
-d <- read.csv("prep_raw_data.csv")
-d$Transect <- paste(d$RouteNumber, d$Year, sep=".")
+library(anchors)
 
-code <- read.csv("BBLcodes.csv", header=T)
+# d <- read.csv("prep_raw_data.csv")
+# d$Transect <- paste(d$RouteNumber, d$Year, sep=".")
+
 code <- select(code, -c(SP, CONF, SPEC6, CONF6))
 
 # Merge subspecies into 1 species for northern flicker, dark-eyed junco and yellow-rumped warbler
-library(anchors)
 d <- replace.value(d, "COMMONNAME", from = c("(Myrtle Warbler) Yellow-rumped Warbler", "(Audubon's Warbler) Yellow-rumped Warbler", "(unid. Myrtle/Audubon's) Yellow-rumped Warbler"),
                     to = "Yellow-rumped Warbler")
 d <- replace.value(d, "COMMONNAME", from = c("(Yellow-shafted) Northern Flicker", "(Yellow-shafted Flicker) Northern Flicker", "(Red-shafted) Northern Flicker", "(unid. Red/Yellow Shafted) Northern Flicker"),
@@ -111,80 +129,83 @@ dd <- d %>% filter(!str_detect(COMMONNAME, 'unid.'))
 df <- merge(dd, code, by="COMMONNAME", all.x = TRUE)
 
 # Merge info on species codes 0 == obligate, 1 == edge, 2 == shrub, 3 == not associated with forests
-# Load in list of coded forest species
-forest <- read.csv("forestbirdcodes.csv", header=T)
-
 names(df)[names(df) == "SPEC"] <- "SpeciesCode"
 names(code)[names(code) == "SPEC"] <- "SpeciesCode"
 names(forest)[names(forest) == "Code"] <- "SpeciesCode"
 names(forest)[names(forest) == "Forest.bird..0.no..1.yes."] <- "ForestDependent" 
 names(forest)[names(forest) == "Code.1"] <- "ForestCode"
 
+
+
+
+# save workspace, restart R, reload tidyverse
+
+
+library(tidyverse)
+forest <- select(forest, -c(ForestDependent, Species))
+
 df <- merge(df, forest, by = "SpeciesCode", all.x = TRUE)
 
-write.csv(df, "clean_up_species.csv")
+
+
 
 # ------------------------#
 #    CANADA FILTERING     |
 # ------------------------#
 
-df <- read.csv("clean_up_species.csv")
-df$Transect <- paste(df$RouteNumber, df$Year, sep=".")
 
 # Sum across the 11 stops and summarize so only 1 count per species per transect 
 # deals with duplicate species produced by merging of subspecies & hybrids above
 df$Count<-df$Stop1+df$Stop2+df$Stop3+df$Stop4+df$Stop5+df$Stop6+df$Stop7+df$Stop8+df$Stop9+df$Stop10+df$Stop11
-df$RouteNumber <- as.numeric(df$RouteNumber)
 summarize_df <- df %>% group_by(Transect, RouteNumber, Year, CountryNum, SpeciesCode, ForestCode) %>% summarize(Count = sum(Count))
 
 # Select for only forest species 0 == forest obligate, 1 == edge
-ddf0 <- summarize_df[which(summarize_df$ForestCode == 0),]
-ddf1 <- summarize_df[which(summarize_df$ForestCode == 1),]
-ddf <- rbind(ddf0, ddf1)
+ddf <- filter(summarize_df, ForestCode == 0)
 
 # Remove years before 2000
 ddf <- ddf[which(ddf$Year > 1999),]
 ddf <- ddf[order(ddf$RouteNumber),]
 
 # Write Canada dataset
-# == 372072 obs
-canada_df <- ddf[which(ddf$CountryNum == 124),]
+# == 372072 obs if edge species
+# == 224763 if only forest species
+canada_df <- filter(ddf, CountryNum == 124)
 
-write.csv(canada_df,"canadaBBSdataset_R.csv")
+
+
+write.csv(canada_df,"canadaBBSdataset.csv")
+
 
 
 # ------------------------#
 #   ADDING IN MORE INFO   |
 # ------------------------#
 
-# close R to detach libraries and run below
-setwd("/Users/Kayla/Documents/BBS data")
-library(tidyverse)
-canada_df <- read.csv("canadaBBSdataset_R.csv")
-canada_df$Transect <- paste(canada_df$RouteNumber, canada_df$Year, sep=".")
+
 #### FOREST COVER -------------------------
 # obtained from extracting % mean forest cover from GFC forest layers in each transect
-forestcover <- read.csv("FORESTCOVER_wide.csv", header=T, check.names = FALSE)
 change <- select(forestcover, c(RouteNumber, Change))
-forestcover <- select(forestcover, -Change)
+forestcover <- select(forestcover, -c(FID, Change))
 
 # reformat to long
-newforest <- reshape(forestcover,v.names="Forest cover",varying = 3:21, timevar="Year",times=names(forestcover)[3:21],direction='long')
-newforest$Transect <- paste(newforest$RouteNumber, newforest$Year, sep=".")
-canada_df <- merge(canada_df, newforest, by = "Transect")
-names(canada_df)[names(canada_df) == "RouteNumber.x"] <- "RouteNumber"
-names(canada_df)[names(canada_df) == "Year.x"] <- "Year"
-canada_df <- merge(canada_df, change, by = "RouteNumber")
-canada_df <- select(canada_df, -c(RouteNumber.y, Year.y, FID, id))
+forest_long <- reshape(forestcover,v.names="Forest cover",varying = 2:20, timevar="Year",times=names(forestcover)[2:20],direction='long')
+forest_long$Transect <- paste(forest_long$RouteNumber, forest_long$Year, sep=".")
+forest_long <- select(forest_long, -c(RouteNumber, Year, id))
+  
+canada_df <- merge(canada_df, forest_long, by = "Transect")
+
+
+
 
 ### ECOZONE (obtained from ArcMap overlay) --------------------------
-ecozone <- read.csv("AllTransects_Ecozones.csv", header=T)
 ecozone <- select(ecozone, -c(cv2018_, AREA, PERIMETER))
 canada_df <- merge(canada_df, ecozone, by = "RouteNumber")
 
 
+
+
+
 #### OBSERVER AND WEATHER (downloaded from BBS site) -------------------------
-obs <- read.csv("observerinfo_raw.csv", header=T)
 
 # Create unique placeholder ID for statenum + route
 obs$placeholder <- paste(obs$StateNum, obs$Route, sep=".")
@@ -198,33 +219,42 @@ r <- select(r, -2)
 # i.e. Statenum = 04 and Route = 001 becomes RouteNumber = 4001
 # StateNum goes up to 2 digits and Route goes up to 3 digits
 nrows <- length(r$Route)
-createRouteNumber(r)
+
+pb <- winProgressBar(title="progress", min=0, max=nrows, width=300)
+
+for(i in 1:nrows) {
+  if(r$Route[i] < 100 & r$Route[i] >= 10) {
+    r$RouteNumber[i] <- paste(r$StateNum[i], r$Route[i], sep="0")
+  } 
+  else if(r$Route[i] < 10) {
+    r$RouteNumber[i] <- paste(r$StateNum[i], r$Route[i], sep="00")
+  }
+  else {
+    r$RouteNumber[i] <- paste(r$StateNum[i], r$Route[i], sep="")
+  }
+  Sys.sleep(0.1); setWinProgressBar(pb,i,title=paste("Row:", i, "out of", nrows, "done"))
+}
+close(pb)
+
+r <- select(r, -c(RouteDataID, StateNum, Route, RunType))
 obs <- merge(obs, r, by = "placeholder", all.x = FALSE)
 obs$Transect <- paste(obs$RouteNumber, obs$Year, sep=".")
-obs <- select(obs, c(Transect, ObsN, RouteNumber, Year, StartWind, RunType.x))
+obs <- select(obs, c(Transect, ObsN, StartWind, RunType))
 
-# Remove years before 2000
-obs <- obs[which(obs$Year > 1999),]
-obs <- obs[order(obs$RouteNumber),]
 
-canada_df_T <- merge(canada_df, obs, by = "Transect", all.x = FALSE)
-names(canada_df_T)[names(canada_df_T) == "RunType.x"] <- "RunType"
-names(canada_df_T)[names(canada_df_T) == "RouteNumber.x"] <- "RouteNumber"
-canada_df_T <- select(canada_df_T, -c(RouteNumber.y, Year.x))
-names(canada_df_T)[names(canada_df_T) == "Year.y"] <- "Year"
+canada_df <- merge(canada_df, obs, by = "Transect", all.x = FALSE)
+
+
+
 
 # RUNTYPE = 0 specification codes (obtained from NWRC) ---------------------
-run <- read.csv("RunType_NWRC.csv", header=T)
 names(run)[names(run) == "RouteNo"] <- "RouteNumber"
 run$Transect <- paste(run$RouteNumber, run$Year, sep = ".")
-canada_df_T <- merge(canada_df_T, run, by = "Transect", all.x = TRUE)
-
-canada_df_T <- select(canada_df_T, -c(Year, RouteNumber.y, State, Route))
-names(canada_df_T)[names(canada_df_T) == "Year.y"] <- "Year"
-names(canada_df_T)[names(canada_df_T) == "RouteNumber.x"] <- "RouteNumber"
-
-write.csv(canada_df_T, "complete_canada_dataset.csv")
+run <- select(run, -c(RouteNumber, State, Route, Year))
 
 
-## final step:
-# see if my output matches with the one I created half-manually in Excel w/o code documentation
+canada_df<- merge(canada_df, run, by = "Transect", all.x = TRUE)
+
+
+write.csv(canada_df, "complete_canada_dataset.csv")
+
