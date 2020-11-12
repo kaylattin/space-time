@@ -2,7 +2,7 @@ library(jagsUI)
 library(tidyverse)
 library(ggmcmc)
 
-dat <- read.csv("complete_21_ND_OCT28.csv")
+dat <- read.csv("complete_21_D_OCT28.csv")
 dat_obs <- read.csv("FINAL_OBSERVER_DATASET.csv", fileEncoding="UTF-8-BOM")
 
 reg7 <- dat[which(dat$Region == 2),]
@@ -107,7 +107,6 @@ for(k in 1:ncounts) {
   
   # priors
   noise[k] ~ dnorm(0, taunoise)
-  beta_wind[k] ~ dnorm(0,0.01)
   
 }
   
@@ -145,7 +144,6 @@ jags_dat <- list('count' = count,
                  'space.time' = space.time,
                  'p_forest' = p_forest,
                  'species' = species,
-                 'wind' = wind,
                  'observer' = observer,
                  'ncounts' = ncounts,
                  'nspecies' = nspecies,
@@ -171,7 +169,6 @@ parms <- c("beta_space_time",
            "sd_species",
            "alpha",
            "beta_mod",
-           "beta_wind",
            "sd_beta_mod",
            "beta_diff",
            "sd_noise_obs",
