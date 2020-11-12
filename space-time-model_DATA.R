@@ -5,6 +5,9 @@ library(ggmcmc)
 dat <- read.csv("complete_21_ND_OCT28.csv")
 dat_obs <- read.csv("FINAL_OBSERVER_DATASET.csv", fileEncoding="UTF-8-BOM")
 
+reg7 <- dat[which(dat$Region == 2),]
+reg7 <- reg7[which(reg7$space.time == 1),]
+plot(reg7$BBS.count ~ reg7$Forest.cover, col = reg7$Species)
 ### set up main analysis data
 space.time <- dat$space.time # categorical
 region <- dat$Region # categorical
@@ -41,6 +44,8 @@ nobs <- length(unique(obs)) # number of observers
 nroutes_obs <- length(unique(route)) # number of routes
 nspecies_obs <- length(unique(species_obs)) # number of species in observer dataset
 necozones_obs <- length(unique(ecozone)) # number of ecozones
+
+
 
 inits <- list(sd_beta_mod = 1, sd_noise = 1)
 
@@ -97,7 +102,7 @@ for(i in 1:ncounts_obs) {
 
 ######### MAIN model ###########
 for(k in 1:ncounts) {
-  log(lambda[k]) <- alpha[region[k],species[k]] + (beta_space_time[region[k],space.time[k]] * (p_forest[k] - 0.5)) + (beta_wind[k] * wind[k]) + obs_offset[observer[k]] + noise[k]
+  log(lambda[k]) <- alpha[region[k],species[k]] + (beta_space_time[region[k],space.time[k]] * (p_forest[k] - 0.5)) + obs_offset[observer[k]] + noise[k]
   count[k] ~ dpois(lambda[k])
   
   # priors
@@ -180,7 +185,7 @@ memory.limit(56000)
 
 x = jagsUI(data = jags_dat,
                    parameters.to.save = parms,
-                   n.chains = 4,
+                   n.chains = 2,
                    n.adapt = 2000,
                    n.burnin = 20000, # discard half the iterations re: gelman 
                    n.thin = 50, # keep more
@@ -188,7 +193,7 @@ x = jagsUI(data = jags_dat,
                    n.iter = 40000,
                    parallel = T,
                    modules = NULL,
-                   model.file = "space_time_DATA_2.r")
+                   model.file = "space_time_DATA.r")
 
 library(rlist)
 list.save(x,"data_rawoutput.RData")
@@ -205,7 +210,6 @@ x$n.eff
 out_ggs_beta_space_time = ggs(x$samples,  family = "beta_space_time")
 out_ggs_beta_mod = ggs(x$samples,  family = "beta_mod")
 out_ggs_beta_diff = ggs(x$samples, family = "beta_diff")
-out_ggs_beta_wind = ggs(x$samples,  family = "beta_wind") # really huge
 
 out_ggs_sd_beta_mod = ggs(x$samples, family = "sd_beta_mod")
 out_ggs_sd_noise = ggs(x$samples, family = "sd_noise")
@@ -215,7 +219,6 @@ out_ggs_sd_noise_obs = ggs(x$samples, family = "sd_noise_obs")
 ggmcmc(out_ggs_beta_space_time,file = "beta_space_time_summary_DATA_2.pdf", family = "beta_space_time", param_page = 8)
 ggmcmc(out_ggs_beta_mod,file = "beta_mod_summary_DATA_2.pdf", family = "beta_mod", param_page = 8)
 ggmcmc(out_ggs_beta_diff,file = "beta_diff_summary_DATA_2.pdf", family = "beta_diff", param_page = 8)
-ggmcmc(out_ggs_beta_wind,file = "beta_wind_summary_SIM.pdf", family = "beta_wind", param_page = 8)
 
 ggmcmc(out_ggs_sd_beta_mod,file = "sd_beta_mod_summary_DATA_2.pdf", family = "sd_beta_mod", param_page = 8)
 ggmcmc(out_ggs_sd_noise,file = "sd_noise_summary_DATA_2.pdf", family = "sd_noise", param_page = 8)
