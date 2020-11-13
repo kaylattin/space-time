@@ -2,7 +2,7 @@ library(jagsUI)
 library(tidyverse)
 library(ggmcmc)
 
-dat <- read.csv("complete_21_D_OCT28.csv")
+dat <- read.csv("complete_21_ND_OCT28.csv")
 dat_obs <- read.csv("FINAL_OBSERVER_DATASET.csv", fileEncoding="UTF-8-BOM")
 
 reg7 <- dat[which(dat$Region == 2),]
@@ -15,8 +15,6 @@ forest <- dat$Forest.cover # continuous
 species_f <- dat$Species # imported in as a factor - categorical
 count <- dat$BBS.count # count
 observer <- dat$Obs_ID # categorical
-wind <- dat$StartWind # categorical
-
 
 ### set up observer model data
 route <- dat_obs$Route_ID # categorical - index variable
@@ -46,8 +44,12 @@ nspecies_obs <- length(unique(species_obs)) # number of species in observer data
 necozones_obs <- length(unique(ecozone)) # number of ecozones
 
 
+# use function so that inits apply to both chains (or all chains)
+inits <- function() {
+  list(sd_noiset = 1,
+       sd_beta_modt = 1)
+}
 
-inits <- list(sd_beta_mod = 1, sd_noise = 1)
 
 ###############################
 #    MODEL CODE!!!            #
@@ -114,14 +116,15 @@ for(g in 1:nregions){
 
 ## priors on alpha
   alpha_bar[g] ~ dnorm(0,1) # weakly informative prior on REGION intercept
+
+    ## priors on alpha vars
+  sd_speciest[g] ~ dt(0, 1, 20) T(0,) 
+  sd_species[g] <- 0.1*sd_speciest[g]
+  tau_species[g] <- pow(sd_species[g], -2) # prior on precision
   
   for(s in 1:nspecies){
-    alpha[g,s] ~ dnorm(alpha_bar[g], tau_species[s]) # region-level intercept for species-s, centered on region-level mean
-    
-    ## priors on alpha vars
-  sd_speciest[s] ~ dt(0, 1, 20) T(0,) 
-  sd_species[s] <- 0.1*sd_speciest[s]
-  tau_species[s] <- pow(sd_species[s], -2) # prior on precision
+    alpha[g,s] ~ dnorm(alpha_bar[g], tau_species[g]) # region-level intercept for species-s, centered on region-level mean
+
   }
 
  ## priors on beta
@@ -181,19 +184,19 @@ memory.limit(56000)
 # get posterior samples ----------------------------
 
 x = jagsUI(data = jags_dat,
-                   parameters.to.save = parms,
-                   n.chains = 2,
-                   n.adapt = 2000,
-                   n.burnin = 20000, # discard half the iterations re: gelman 
-                   n.thin = 50, # keep more
-                   inits = inits,
-                   n.iter = 40000,
-                   parallel = T,
-                   modules = NULL,
-                   model.file = "space_time_DATA.r")
+           parameters.to.save = parms,
+           n.chains = 2,
+           n.adapt = 2000,
+           n.burnin = 20000, # discard half the iterations re: gelman 
+           n.thin = 50, # keep more
+           inits = inits,
+           n.iter = 40000,
+           parallel = T,
+           modules = NULL,
+           model.file = "space_time_DATA.r")
 
 library(rlist)
-list.save(x,"data_rawoutput.RData")
+list.save(x,"data_rawoutput_NOV12.RData")
 
 
 summary(x)
