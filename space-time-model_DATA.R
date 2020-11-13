@@ -13,7 +13,7 @@ space.time <- dat$space.time # categorical
 region <- dat$Region # categorical
 forest <- dat$Forest.cover # continuous 
 species_f <- dat$Species # imported in as a factor - categorical
-count <- dat$BBS.count # count
+count <- dat$Count # count
 observer <- dat$Obs_ID # categorical
 
 ### set up observer model data
