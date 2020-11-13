@@ -1,19 +1,19 @@
 library(jagsUI)
 library(tidyverse)
 library(ggmcmc)
-
-dat <- read.csv("complete_21_ND_OCT28.csv")
+dat <- read.csv("wholedataset_D_NOV12.csv")
 dat_obs <- read.csv("FINAL_OBSERVER_DATASET.csv", fileEncoding="UTF-8-BOM")
 
-reg7 <- dat[which(dat$Region == 2),]
-reg7 <- reg7[which(reg7$space.time == 1),]
-plot(reg7$BBS.count ~ reg7$Forest.cover, col = reg7$Species)
+obsID <- select(dat_obs, c(ObsN, Obs_ID))
+obsID <- obsID %>% distinct(ObsN, Obs_ID)
+dat<- merge(dat, obsID, by = "ObsN", all.x = TRUE)
+
 ### set up main analysis data
 space.time <- dat$space.time # categorical
 region <- dat$Region # categorical
 forest <- dat$Forest.cover # continuous 
 species_f <- dat$Species # imported in as a factor - categorical
-count <- dat$BBS.count # count
+count <- dat$Count # count
 observer <- dat$Obs_ID # categorical
 
 ### set up observer model data
