@@ -18,4 +18,6 @@ nd_long$Transect <- paste(nd_long$RouteNumber, nd_long$Year, sep = ".")
 nd_merge <- merge(nd_long, d, by = "Transect", all.x = FALSE)
 nd_merge$space.time <- rep(2)
 
-write.csv(nd_merge, "spatialdataset_ND.csv")
+nd_merge2 <- nd_merge %>% distinct(Transect, SpeciesCode, .keep_all = TRUE)
+
+write.csv(nd_merge, "spatialdataset_NOV12_ND.csv")

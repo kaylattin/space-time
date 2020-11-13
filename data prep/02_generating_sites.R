@@ -3,6 +3,7 @@ setwd("/Users/Kayla/Documents/BBS data")
 library(tidyverse)
 library(data.table)
 d <- read.csv("complete_canada_dataset.csv", header=T)
+d$Transect <- paste(d$RouteNumber, d$Year, sep=".")
 
 
 forestcover <- read.csv("FORESTCOVER_wide.csv", header=T)
@@ -31,7 +32,7 @@ t.list <- t.sitesByYear$RouteNumber
 t.sites <- t.forest[t.forest$RouteNumber %in% t.list ,]
 t.sites <- distinct(t.sites, RouteNumber, X2000, X2018, ECOZONE)
 
-## Then, for each temporal site 2000 to 2018 range, after rounding to nearest 1%, and giving an "sd" of 2%,
+## Then, for each temporal site 2000 to 2018 range, after rounding to nearest 1%, and giving an "sd" range of + or - 5%,
 # select routes in s.sites that represent the same forest % gradient
 # in the same ecozone in 2018
 # need to continuously refer back to temporal object to adjust numbers for this
@@ -156,29 +157,29 @@ l15 <- s15$RouteNumber
 s16 <- s.forest[which(s.forest$X2018 <= 59 & s.forest$X2018 >= 22 & s.forest$ECOZONE == 6),]
 p <- c("Manitoba", "Ontario", "Quebec")
 s16 <- filter(s16, prov %in% p)
-s16$Region <- rep(17)
+s16$Region <- rep(16)
 l16 <- s16$RouteNumber
 
 # temporal = route 68231
 s17 <- s.forest[which(s.forest$X2018 <= 81 & s.forest$X2018 >= 51 & s.forest$ECOZONE == 6),]
 p <- c("Manitoba", "Ontario", "Quebec")
 s17 <- filter(s17, prov %in% p)
-s17$Region <- rep(18)
+s17$Region <- rep(17)
 l17 <- s17$RouteNumber
 
 # temporal = route 68256
 s18 <- s.forest[which(s.forest$X2018 <= 69 & s.forest$X2018 >= 37 & s.forest$ECOZONE == 6),]
 p <- c("Manitoba", "Ontario", "Quebec")
 s18 <- filter(s18, prov %in% p)
-s18$Region <- rep(19)
+s18$Region <- rep(18)
 l18 <- s18$RouteNumber
 
 # temporal = route 76237
 s19 <- s.forest[which(s.forest$X2018 <= 88 & s.forest$X2018 >= 57 & s.forest$ECOZONE == 6),]
 p <- c("Quebec", "Ontario", "Newfoundland & Labrador", "New Brunswick")
 s19 <- filter(s19, prov %in% p)
-s19$Region <- rep(20)
-l19 <- s20$RouteNumber
+s19$Region <- rep(19)
+l19 <- s19$RouteNumber
 
 # temporal = route 76281
 #21 <- s.forest[which(s.forest$X2018 <= 76 & s.forest$X2018 >= 41 & s.forest$ECOZONE == 6),]
@@ -190,14 +191,14 @@ l19 <- s20$RouteNumber
 # temporal = route 76439
 s20 <- s.forest[which(s.forest$X2018 <= 84 & s.forest$X2018 >= 53 & s.forest$ECOZONE == 6),]
 p <- c("Quebec", "Ontario", "Newfoundland & Labrador", "New Brunswick")
-s20 <- filter(s22, prov %in% p)
-s20$Region <- rep(22)
-l20 <- s22$RouteNumber
+s20 <- filter(s20, prov %in% p)
+s20$Region <- rep(20)
+l20 <- s20$RouteNumber
 
 
 ### dataframe of spatial lists for each temporal site
 s.data <- data.table(l1,l2,l3,l4,l5,l6,l7,l8,l9,l10,l11,l12,l13,l14,l15,l16,l17,l18,l19,l20)
-write.csv(s.data,"spatialSiteList.csv") # needs some post-processing in excel to remove recycling in columns
+write.csv(s.data,"spatialSiteList_check.csv") # needs some post-processing in excel to remove recycling in columns
 
 ### get the list of spatial sites with duplicates
 spatial <- rbind(s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,
@@ -210,15 +211,16 @@ spatial <- select(spatial, -c(RouteNumber, Year, prov, ECOZONE, X2018, FID))
 spatial_merge <- merge(spatial, d, by = "Transect", all.x = FALSE)
 spatial_merge$space.time <- rep(2)
 
-write.csv(spatial_merge,"spatialdataset_NOV11.csv")
+write.csv(spatial_merge,"spatialdataset_NOV12_D.csv")
 
 ### temporal dataset
 temporal <- d[d$RouteNumber %in% t.list ,]
 temporal$Transect <- paste(temporal$RouteNumber, temporal$Year, sep=".")
 temporal$space.time <- rep(1)
 region_index <- data.table(
-  RouteNumber = t.sites$RouteNumber,
+  RouteNumber = t.sitesByYear$RouteNumber,
   Region = seq(1:20)
 )
 temporal <- merge(temporal, region_index, by = "RouteNumber")
-write.csv(temporal, "temporaldataset_NOV11.csv")
+
+write.csv(temporal, "temporaldataset_NOV12.csv")
