@@ -1,41 +1,47 @@
 library(jagsUI)
 library(tidyverse)
 library(ggmcmc)
-dat <- read.csv("wholedataset_D_NOV12.csv")
-dat_obs <- read.csv("FINAL_OBSERVER_DATASET.csv", fileEncoding="UTF-8-BOM")
+
+setwd("/Users/kayla/Documents/space-time")
+dat <- read.csv("wholedataset_speciesover40_NOV18.csv")
+#obsdat <- read.csv("observerdataset_NOV12.csv")
+
+#dat_species <- dat %>% distinct(SpeciesCode)
+#specieslist <- dat_species$SpeciesCode
+#dat_obs <- obsdat[obsdat$SpeciesCode %in% specieslist ,]
+
+#write.csv(dat_obs, "observerdataset_NOV23.csv")
+dat_obs <- read.csv("observerdataset_NOV23.csv")
 
 obsID <- select(dat_obs, c(ObsN, Obs_ID))
 obsID <- obsID %>% distinct(ObsN, Obs_ID)
-dat<- merge(dat, obsID, by = "ObsN", all.x = TRUE)
+dat <- merge(dat, obsID, by = "ObsN", all.x = TRUE)
 
 ### set up main analysis data
 space.time <- dat$space.time # categorical
-region <- dat$Region # categorical
 forest <- dat$Forest.cover # continuous 
-species_f <- dat$Species # imported in as a factor - categorical
 count <- dat$Count # count
 observer <- dat$Obs_ID # categorical
+sp.region_f <- dat$SpeciesRegion # categorical
 
 ### set up observer model data
 route <- dat_obs$Route_ID # categorical - index variable
-species_obs_f <- dat_obs$Species # categorical - factor
+species_obs_f <- dat_obs$SpeciesCode # categorical - factor
 obs <- dat_obs$Obs_ID # categorical - index variable
 count_obs <- dat_obs$Count 
-ecozone <- dat_obs$Ecozone_ID # categorical - index variable
+ecozone <- dat_obs$Eco_ID # categorical - index variable
 
 
 ### convert to percentage
 p_forest <- 0.01*forest
 
 # convert species factor to integer
-species <- as.integer(as.factor(species_f))
+sp.region <- as.integer(as.factor(sp.region_f))
 species_obs <- as.integer(as.factor(species_obs_f))
-
 
 ### set up n's
 ncounts <- nrow(dat)
-nspecies <- length(unique(species)) # number of species
-nregions <- length(unique(region)) # number of regions
+nsp.regions <- length(unique(sp.region)) # number of species
 nobservers <- length(unique(observer)) # number of observers
 ncounts_obs <- nrow(dat_obs) # number of observer counts
 nobs <- length(unique(obs)) # number of observers
@@ -71,9 +77,17 @@ tau_obs <- pow(sd_obs, -2)
 sd_noise_obs ~ dt(0, 1, 4) T(0,)
 tau_noise_obs <- pow(sd_noise_obs, -2)
     
-sd_beta_modt ~ dt(0, 1, 4) T(0,)
-sd_beta_mod <- 0.1 * sd_beta_modt
-tau_beta_mod <- pow(sd_beta_mod, -2)
+#sd_beta_modt ~ dt(0, 1, 4) T(0,)
+#sd_beta_mod <- 0.5 * sd_beta_modt
+#tau_beta_mod <- pow(sd_beta_mod, -2)
+
+## priors on alpha vars
+sd_species ~ dt(0, 1, 20) T(0,) 
+tau_species <- pow(sd_species, -2) # prior on precision
+
+sd_betat ~ dt(0, 1, 20) T(0,)
+sd_beta <- 0.5 * sd_betat
+tau_beta <- pow(sd_beta, -2)
 
   
 ######### observer model ###########
@@ -104,7 +118,7 @@ for(i in 1:ncounts_obs) {
 
 ######### MAIN model ###########
 for(k in 1:ncounts) {
-  log(lambda[k]) <- alpha[region[k],species[k]] + (beta_space_time[region[k],space.time[k]] * (p_forest[k] - 0.5)) + obs_offset[observer[k]] + noise[k]
+  log(lambda[k]) <- alpha[sp.region[k]] + (beta_space_time[sp.region[k],space.time[k]] * (p_forest[k] - 0.5)) + obs_offset[observer[k]] + noise[k]
   count[k] ~ dpois(lambda[k])
   
   # priors
@@ -112,27 +126,19 @@ for(k in 1:ncounts) {
   
 }
   
-for(g in 1:nregions){
+for(p in 1:nsp.regions){
 
 ## priors on alpha
-  alpha_bar[g] ~ dnorm(0,1) # weakly informative prior on REGION intercept
+# alpha_bar[p] ~ dnorm(0,0.1) # uninformative prior on REGION intercept
 
-    ## priors on alpha vars
-  sd_speciest[g] ~ dt(0, 1, 20) T(0,) 
-  sd_species[g] <- 0.1*sd_speciest[g]
-  tau_species[g] <- pow(sd_species[g], -2) # prior on precision
-  
-  for(s in 1:nspecies){
-    alpha[g,s] ~ dnorm(alpha_bar[g], tau_species[g]) # region-level intercept for species-s, centered on region-level mean
+alpha[p] ~ dnorm(0, tau_species) # random effect
 
-  }
+## priors on beta
+# beta_mod[p] ~ dnorm(0, tau_beta_mod)
+beta_space_time[p,1] ~ dnorm(0, tau_beta) # or beta_space_time[p,1] ~ dnorm(0,tau.beta_space_time) if random effect
+beta_space_time[p,2] ~ dnorm(0, tau_beta)
+beta_diff[p] <- beta_space_time[p,2] - beta_space_time[p,1] # space slope == 2
 
- ## priors on beta
-beta_mod[g] ~ dnorm(0, tau_beta_mod)
-beta_space_time[g,1] ~ dnorm(0,0.01) # or beta_space_time[g,1] ~ dnorm(0,tau.beta_space_time) if random effect
-beta_space_time[g,2] <- beta_space_time[g,1] + beta_mod[g] # space slope == 2
-
-# beta_space_time[g,2] ~ dnorm(0,0.01)
 
 }
 
@@ -142,15 +148,14 @@ cat(modl,file = "space_time_DATA.r")
 
 
 
+library(rlist)
 jags_dat <- list('count' = count,
-                 'region' = region,
                  'space.time' = space.time,
                  'p_forest' = p_forest,
-                 'species' = species,
+                 'sp.region' = sp.region,
                  'observer' = observer,
                  'ncounts' = ncounts,
-                 'nspecies' = nspecies,
-                 'nregions' = nregions,
+                 'nsp.regions' = nsp.regions,
                  'nobservers' = nobservers,
                  # observer
                  'count_obs' = count_obs,
@@ -168,12 +173,9 @@ jags_dat <- list('count' = count,
 # skipping wind for now b/c it's so big
 parms <- c("beta_space_time",
            "sd_noise",
-           "alpha_bar",
-           "sd_species",
            "alpha",
-           "beta_mod",
-           "sd_beta_mod",
            "beta_diff",
+           "noise",
            "sd_noise_obs",
            "obs_offset")
 
@@ -195,8 +197,7 @@ x = jagsUI(data = jags_dat,
            modules = NULL,
            model.file = "space_time_DATA.r")
 
-library(rlist)
-list.save(x,"data_rawoutput_NOV12.RData")
+list.save(x,"data_rawoutput_NOV27_betadiffupdate.RData")
 
 
 summary(x)
@@ -209,18 +210,29 @@ x$n.eff
 # set out = x to ease re-loading the .rdata file across different sessions
 out_ggs_beta_space_time = ggs(x$samples,  family = "beta_space_time")
 out_ggs_beta_mod = ggs(x$samples,  family = "beta_mod")
-out_ggs_beta_diff = ggs(x$samples, family = "beta_diff")
+out_ggs_beta_mod = ggs(x$samples,  family = "beta_diff")
+out_ggs_alpha = ggs(x$samples,  family = "alpha")
 
 out_ggs_sd_beta_mod = ggs(x$samples, family = "sd_beta_mod")
 out_ggs_sd_noise = ggs(x$samples, family = "sd_noise")
 out_ggs_obs_offset = ggs(x$samples, family = "obs_offset")
 out_ggs_sd_noise_obs = ggs(x$samples, family = "sd_noise_obs")
 
-ggmcmc(out_ggs_beta_space_time,file = "beta_space_time_summary_DATA_2.pdf", family = "beta_space_time", param_page = 8)
-ggmcmc(out_ggs_beta_mod,file = "beta_mod_summary_DATA_2.pdf", family = "beta_mod", param_page = 8)
-ggmcmc(out_ggs_beta_diff,file = "beta_diff_summary_DATA_2.pdf", family = "beta_diff", param_page = 8)
+ggmcmc(out_ggs_beta_space_time,file = "beta_space_time_summary_NOV27.pdf", family = "beta_space_time", param_page = 8)
+ggmcmc(out_ggs_beta_mod,file = "beta_mod_summary_NOV27.pdf", family = "beta_mod", param_page = 8)
+ggmcmc(out_ggs_beta_mod,file = "beta_diff_summary_NOV27.pdf", family = "beta_diff", param_page = 8)
+ggmcmc(out_ggs_alpha,file = "alpha_summary_NOV27.pdf", family = "alpha", param_page = 8)
 
-ggmcmc(out_ggs_sd_beta_mod,file = "sd_beta_mod_summary_DATA_2.pdf", family = "sd_beta_mod", param_page = 8)
-ggmcmc(out_ggs_sd_noise,file = "sd_noise_summary_DATA_2.pdf", family = "sd_noise", param_page = 8)
-ggmcmc(out_ggs_obs_offset,file = "obs_offset_summary_DATA_2.pdf", family = "obs_offset", param_page = 8)
-ggmcmc(out_ggs_sd_noise_obs,file = "sd_noise_obs_summary_DATA_2.pdf", family = "sd_noise_obs", param_page = 8)
+ggmcmc(out_ggs_sd_beta_mod,file = "sd_beta_mod_summary_NO27.pdf", family = "sd_beta_mod", param_page = 8)
+ggmcmc(out_ggs_sd_noise,file = "sd_noise_summary_NOV27.pdf", family = "sd_noise", param_page = 8)
+ggmcmc(out_ggs_obs_offset,file = "obs_offset_summary_NOV27.pdf", family = "obs_offset", param_page = 8)
+ggmcmc(out_ggs_sd_noise_obs,file = "sd_noise_obs_summary_NOV27.pdf", family = "sd_noise_obs", param_page = 8)
+
+
+# some plotting
+plot(x$mean$beta_space_time)
+plot(x$mean$beta_diff)
+plot(x$mean$alpha)
+
+alpha_outcome <- exp(x$mean$alpha)
+plot(alpha_)
