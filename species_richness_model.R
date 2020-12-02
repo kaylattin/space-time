@@ -3,35 +3,35 @@ library(tidyverse)
 library(ggmcmc)
 
 setwd("/Users/kayla/Documents/space-time")
-ta <- read.csv("wholedataset_totalabundance.csv")
-ta_obs <- read.csv("observerdataset_totalabundance.csv")
+sr <- read.csv("wholedataset_richness.csv")
+sr_obs <- read.csv("observerdataset_richness.csv")
 
-obsID <- select(ta_obs, c(ObsN, Obs_ID))
+obsID <- select(sr_obs, c(ObsN, Obs_ID))
 obsID <- obsID %>% distinct(ObsN, Obs_ID)
-ta <- merge(ta, obsID, by = "ObsN", all.x = TRUE)
+sr <- merge(sr, obsID, by = "ObsN", all.x = TRUE)
 
 ### set up main analysis taa
-space.time <- ta$space.time # categorical
-forest <- ta$Forest.cover # continuous 
-region <- ta$Region
-abund <- ta$TotalAbundance # count
-observer <- ta$Obs_ID # categorical
+space.time <- sr$space.time # categorical
+forest <- sr$Forest.cover # continuous 
+region <- sr$Region
+richness <- sr$SpeciesRichness # count
+observer <- sr$Obs_ID # categorical
 
 ### set up observer model data
-route <- ta_obs$Route_ID # categorical - index variable
-obs <- ta_obs$Obs_ID # categorical - index variable
-abund_obs <- ta_obs$TotalAbundance
-ecozone <- ta_obs$Eco_ID # categorical - index variable
+route <- sr_obs$Route_ID # categorical - index variable
+obs <- sr_obs$Obs_ID # categorical - index variable
+richness_obs <- sr_obs$SpeciesRichness
+ecozone <- sr_obs$Eco_ID # categorical - index variable
 
 
 ### convert to percentage
 p_forest <- 0.01*forest
 
 ### set up n's
-nabund <- nrow(ta)
+nrichness <- nrow(sr)
 nobservers <- length(unique(observer)) # number of observers
 nregions <- length(unique(region))
-nabund_obs <- nrow(ta_obs) # number of observer counts
+nrichness_obs <- nrow(sr_obs) # number of observer counts
 nobs <- length(unique(obs)) # number of observers
 nroutes_obs <- length(unique(route)) # number of routes
 necozones_obs <- length(unique(ecozone)) # number of ecozones
@@ -74,12 +74,12 @@ tau_beta_mod <- pow(sd_beta_mod, -2)
 
   
 ######### observer model ###########
-for(i in 1:nabund_obs) {
+for(i in 1:nrichness_obs) {
   log(lambda_obs[i]) <- obs_offset[obs[i]] + route_effect[route[i]] + ecozone_effect[ecozone[i]] + noise_obs[i]
   
   noise_obs[i] ~ dnorm(0, tau_noise_obs)
   
-  abund_obs[i] ~ dpois(lambda_obs[i])
+  richness_obs[i] ~ dpois(lambda_obs[i])
   }
   
   for(o in 1:nobs) {
@@ -96,9 +96,9 @@ for(i in 1:nabund_obs) {
   
 
 ######### MAIN model ###########
-for(k in 1:nabund) {
+for(k in 1:nrichness) {
   log(lambda[k]) <- alpha[region[k]] + (beta_space_time[region[k],space.time[k]] * (p_forest[k] - 0.5)) + obs_offset[observer[k]] + noise[k]
-  abund[k] ~ dpois(lambda[k])
+  richness[k] ~ dpois(lambda[k])
   
   # priors
   noise[k] ~ dnorm(0, taunoise)
@@ -119,26 +119,26 @@ beta_space_time[r,2] <- beta_space_time[r,1] + beta_mod[r] # space slope == 2
 }
 }
 "
-cat(modl,file = "total_abundance.r")
+cat(modl,file = "species_richness.r")
 
 
 
 library(rlist)
-jags_dat <- list('abund' = abund,
+jags_dat <- list('richness' = richness,
                  'space.time' = space.time,
                  'p_forest' = p_forest,
                  'observer' = observer,
                  'region' = region,
-                 'nabund' = nabund,
+                 'nrichness' = nrichness,
                  'nregions' = nregions,
                  'nobservers' = nobservers,
                  # observer
-                 'abund_obs' = abund_obs,
+                 'richness_obs' = richness_obs,
                  'obs' = obs,
                  'route' = route,
                  'ecozone' = ecozone,
                  'nobs' = nobs,
-                 'nabund_obs' = nabund_obs,
+                 'nrichness_obs' = nrichness_obs,
                  'necozones_obs' = necozones_obs,
                  'nroutes_obs' = nroutes_obs)
 
@@ -169,9 +169,9 @@ x = jagsUI(data = jags_dat,
            n.iter = 40000,
            parallel = T,
            modules = NULL,
-           model.file = "total_abundance.r")
+           model.file = "species_richness.r")
 
-list.save(x,"total_abundance_fixedeffects.RData")
+list.save(x,"species_richness_fixedeffects.RData")
 
 
 summary(x)

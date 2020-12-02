@@ -23,15 +23,15 @@ write.csv(richness, "wholedataset_richness.csv")
 
 
 ### OBSERVER DATASET
-obs <- read.csv("observerdataset_NOV12.csv")
+obs <- read.csv("observerdataset_NOV23.csv")
 n_distinct(obs$ObsN)
 
-total_obs <- obs %>% group_by(RouteNumber, Year, ObsN, Eco_ID, Obs_ID ) %>%
+total_obs <- obs %>% group_by(RouteNumber, Year, ObsN, Eco_ID, Obs_ID, Route_ID ) %>%
   summarise(TotalAbundance = sum(Count))
 n_distinct(total_obs$ObsN)
 
 # dataset for species richness at a transect
-richness_obs <- obs %>% group_by(RouteNumber, Year, ObsN, Eco_ID, Obs_ID ) %>%
+richness_obs <- obs %>% group_by(RouteNumber, Year, ObsN, Eco_ID, Obs_ID, Route_ID ) %>%
   summarise(Richness = n_distinct(which(Count >= 1))) # how many species present in that route / year combo
 n_distinct(richness_obs$ObsN)
 
