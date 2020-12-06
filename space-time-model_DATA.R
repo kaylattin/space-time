@@ -3,7 +3,8 @@ library(tidyverse)
 library(ggmcmc)
 
 setwd("/Users/kayla/Documents/space-time")
-dat <- read.csv("wholedataset_speciesover40_NOV18.csv")
+#dat <- read.csv("wholedataset_speciesover40_DEC4.csv")
+dat <- read.csv("wholedataset_speciesover40_DEC6_NODUPLICATES.csv")
 #obsdat <- read.csv("observerdataset_NOV12.csv")
 
 #dat_species <- dat %>% distinct(SpeciesCode)
@@ -11,7 +12,8 @@ dat <- read.csv("wholedataset_speciesover40_NOV18.csv")
 #dat_obs <- obsdat[obsdat$SpeciesCode %in% specieslist ,]
 
 #write.csv(dat_obs, "observerdataset_NOV23.csv")
-dat_obs <- read.csv("observerdataset_NOV23.csv")
+#dat_obs <- read.csv("observerdataset_DEC4.csv")
+dat_obs <- read.csv("observerdataset_DEC6_NODUPLICATES.csv")
 
 obsID <- select(dat_obs, c(ObsN, Obs_ID))
 obsID <- obsID %>% distinct(ObsN, Obs_ID)
@@ -227,8 +229,122 @@ ggmcmc(out_ggs_sd_noise_obs,file = "sd_noise_obs_summary_NOV30.pdf", family = "s
 
 
 # some plotting
-plot(x$mean$beta_space_time)
+load("fixedeffects_DEC5.RData")
+speciesindex <- distinct(data.frame(dat$SpeciesRegion, dat$SpeciesCode, sp.region))
+time <- x$mean$beta_space_time[,1]
+space <- x$mean$beta_space_time[,2]
+beta <- data.frame(time, space, speciesindex)
+beta$species <- as.integer(as.factor(beta$dat.SpeciesCode))
+beta$region <- substring(beta$dat.SpeciesRegion, 5)
+beta$region <- as.integer(beta$region)
+
+s_abund <- ggplot(beta, mapping = aes(space, time)) + 
+  geom_point(
+    colour = "#00798C",
+    alpha = 0.5,
+    size = 3
+  ) +
+  labs(
+    x = "Space slope", 
+    y = "Time slope",
+    size = 4
+  ) +
+  theme_bw()
+
+s_abund <- s_abund + theme(legend.position = "none")
+s_abund
+all <- ggarrange(s_abund, s_rich, t_abund, 
+                 labels = c("A", "B", "C"),
+                 ncol = 1, nrow = 3)
+all
+ggsave("main_results_plot.png", device = "png", plot = all,
+       width = 20, height = 24, units = "cm")
+
+# plot species effects separately
+
+nspecies <- length(unique(beta$species))
+
+write.csv(beta, "fixedeffect_b_DEC5.csv")
+
+beta <- read.csv("fixedeffect_b_DEC5.csv")
+library(ggplot2)
+par(mfrow=c(2,3))
+
+
+plotlist = list()
+for(i in 1:nspecies) {
+  n <- beta[ beta$species == i ,]
+  
+  if (length(unique(n$time)) >= 4) {
+  print(
+    p <- ggplot(n, mapping = aes(space, time),
+           position = 'dodge',
+           check_overlap = TRUE) + 
+      geom_point(
+        aes(colour = factor(region)),
+        size = 3
+      ) +
+      geom_text(
+        label = n$region, 
+        hjust = -1, size = 4,
+        position = position_dodge(width = 1),
+        inherit.aes = TRUE
+        ) +
+      labs(
+        title = n$dat.SpeciesCode,
+        x = "Space slope", 
+        y = "Time slope",
+        size = 4
+        ) +
+      theme_bw()
+)
+    p <- p + theme(legend.position = "none")
+    print(p)
+    
+    pname <- paste("Plot",n$dat.SpeciesCode)
+    ggsave(filename = paste(pname,".png"), device = "png", plot = p,
+           width = 24, height = 18, units = "cm")
+    plotlist[[i]] = p
+  
+  }
+   else {
+  print(paste(n$dat.SpeciesCode, ": Not enough data points to plot"))
+  }
+  
+}
+
+
+
 plot(x$mean$beta_mod)
+mod <- x$mean$beta_mod
+index <- seq(1:243)
+mod <- data.frame(mod, index)
+
+b_mod <-  ggplot(mod, mapping = aes(index, mod)) +
+  geom_point(
+    colour = "#00798C",
+    alpha = 0.5,
+    size = 3
+  ) +
+  labs(
+    x = "", 
+    y = "Difference between spatial & temporal slopes",
+    size = 4
+  ) +
+  theme_bw()
+
+b_mod
+
+all <- ggarrange(b_mod, r_mod, t_mod,
+                 labels = c("A", "B", "C"),
+                 ncol = 3, nrow = 1)
+all
+ggsave("b_mod_plot.png", device = "png", plot = all,
+       width = 40, height = 15, units = "cm")
+
+
+
+
 plot(x$mean$alpha)
 
 alpha_outcome <- exp(x$mean$alpha)
@@ -241,7 +357,6 @@ beta_mod <- data.frame(x$mean$beta_mod, x$sd$beta_mod, x$q97.5$beta_mod)
 obs <- data.frame(x$mean$obs_offset, x$sd$obs_offset, x$q97.5$obs_offset)
 
 
-write.csv(beta, "fixed_effects_beta2.csv")
 write.csv(alpha, "fixed_effects_alpha2.csv")
 write.csv(beta_mod, "fixed_effets_beta_mod2.csv")
 write.csv(obs, "fixed_obsoffset2.csv")

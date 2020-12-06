@@ -171,7 +171,7 @@ x = jagsUI(data = jags_dat,
            modules = NULL,
            model.file = "total_abundance.r")
 
-list.save(x,"total_abundance_fixedeffects.RData")
+list.save(x,"total_abundance_fixedeffects_DEC5.RData")
 
 
 summary(x)
@@ -179,3 +179,57 @@ print(x)
 x$mean$beta_space_time #posterior means of the slope parameters
 x$mean$beta_mod
 x$n.eff
+
+# diagnostics
+out_ggs = ggs(x$samples)
+ggmcmc(out_ggs, file = "total_abundance_summary_DEC5.pdf", param_page = 8)
+
+
+# plotting
+
+load("total_abundance_fixedeffects_DEC5.RData")
+time <- x$mean$beta_space_time[,1]
+space <- x$mean$beta_space_time[,2]
+b <- data.frame(time, space)
+b$region <- seq(1:20)
+
+t_abund <- ggplot(b, mapping = aes(space, time)) + 
+  geom_point(
+    colour = "#D1495B",
+    alpha = 0.7,
+    size = 3
+  ) +
+  labs(
+    x = "Space slope", 
+    y = "Time slope",
+    size = 4
+  ) +
+  theme_bw()
+
+t_abund <- t_abund + theme(legend.position = "none")
+
+plot(x$mean$beta_mod)
+mod <- x$mean$beta_mod
+index <- seq(1:20)
+mod <- data.frame(mod, index)
+
+t_mod <-  ggplot(mod, mapping = aes(index, mod)) +
+  geom_point(
+    colour = "#D1495B",
+    alpha = 0.5,
+    size = 3
+  ) +
+  labs(
+    x = "",
+    y = "",
+    size = 4
+  ) +
+  theme_bw()
+
+t_mod
+
+
+plot(x$mean$alpha)
+
+alpha_outcome <- exp(x$mean$alpha)
+plot(alpha_outcome)
