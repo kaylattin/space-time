@@ -1,4 +1,4 @@
-setwd("/Users/Kayla/Documents/BBS data")
+setwd("/Users/kayla/Documents/BBS data")
 
 library(tidyverse)
 # Load in list of coded forest species
@@ -96,31 +96,39 @@ write.csv(d, "prep_raw_data.csv")
 #    CLEAN UP SPECIES     |
 # ------------------------#
 
+d <- read.csv("prep_raw_data.csv")
 
 # d <- read.csv("prep_raw_data.csv")
 # d$Transect <- paste(d$RouteNumber, d$Year, sep=".")
 
 code <- select(code, -c(SP, CONF, SPEC6, CONF6))
 
-library(anchors)
 
 # Merge subspecies into 1 species for northern flicker, dark-eyed junco and yellow-rumped warbler
-d <- replace.value(d, "COMMONNAME", from = c("(Myrtle Warbler) Yellow-rumped Warbler", "(Audubon's Warbler) Yellow-rumped Warbler", "(unid. Myrtle/Audubon's) Yellow-rumped Warbler"),
-                    to = "Yellow-rumped Warbler")
-d <- replace.value(d, "COMMONNAME", from = c("(Yellow-shafted) Northern Flicker", "(Yellow-shafted Flicker) Northern Flicker", "(Red-shafted) Northern Flicker", "(unid. Red/Yellow Shafted) Northern Flicker"),
-                   to = "Northern Flicker")
-d <- replace.value(d, "COMMONNAME", from = c("(Slate-colored Junco) Dark-eyed Junco", "(Oregon Junco) Dark-eyed Junco", "(Pink-sided Junco) Dark-eyed Junco",
-                                 "(White-winged Junco) Dark-eyed Junco", "(Gray-headed Junco) Dark-eyed Junco", "(unid. race) Dark-eyed Junco"),
-                   to = "Dark-eyed Junco")
+d <- d %>% mutate(COMMONNAME = str_replace_all(COMMONNAME, "Yellow-rumped Warbler",
+                                             "Yellow-rumped Warbler"))
+d$COMMONNAME <- gsub(".+? Yellow-rumped Warbler", "Yellow-rumped Warbler", d$COMMONNAME)
+d <- d %>% mutate(COMMONNAME = str_replace_all(COMMONNAME, "* Northern Flicker",
+                                                "Northern Flicker"))
+d$COMMONNAME <- gsub(".+? Northern Flicker", "Northern Flicker", d$COMMONNAME)
 
-## others that aren't forest birds but for the sake of consistency
-d <- replace.value(d, "COMMONNAME", from = c("African Collared Dove (a.k.a Ringed Turtle-Dove"),
-                   to = "African Collared Dove")
-d <- replace.value(d, "COMMONNAME", from = c("(Great White Heron) Great Blue Heron"), to = "Great Blue Heron")
-d <- replace.value(d, "COMMONNAME", from = c("(Harlan's Hawk) Red-tailed Hawk"), to = "Red-tailed Hawk")
-d <- replace.value(d, "COMMONNAME", from = c("(Black Brant"), to = "Brant")
+d <- d %>% mutate(COMMONNAME = str_replace_all(COMMONNAME, "* Dark-eyed Junco",
+                                         "Dark-eyed Junco"))
 
-detach(package:anchors, unload=TRUE) # detach b/c package masks select() function from dplyr and need it later
+d$COMMONNAME <- gsub(".+? Dark-eyed Junco", "Dark-eyed Junco", d$COMMONNAME)
+
+d <- d %>% mutate(COMMONNAME = str_replace_all(COMMONNAME, "African Collared Dove *",
+                                              "African Collared Dove"))
+d$COMMONNAME <- gsub("African Collared Dove .+?", "African Collared Dove", d$COMMONNAME)
+
+d <- d %>% mutate(COMMONNAME = str_replace_all(COMMONNAME, "* Great Blue Heron",
+                                                "Great Blue Heron"))
+
+d$COMMONNAME <- gsub(".+? Great Blue Heron", "Great Blue Heron", d$COMMONNAME)
+
+d <- d %>% mutate(COMMONNAME = str_replace_all(COMMONNAME, "Black Brant",
+                                               "Brant"))
+d$COMMONNAME <- gsub("Black Brant", "Brant", d$COMMONNAME)
 
 # Remove unid. observations and hybrids
 ## dd = 3607797 obs
@@ -132,25 +140,12 @@ df <- merge(dd, code, by="COMMONNAME", all.x = TRUE)
 
 # Merge info on species codes 0 == obligate, 1 == edge, 2 == shrub, 3 == not associated with forests
 names(df)[names(df) == "SPEC"] <- "SpeciesCode"
-
-write.csv(df, "progress.csv")
-
-
-
-
-# save workspace, restart R, reload tidyverse
-df <- read.csv("progress.csv")
-df$Transect <- paste(df$RouteNumber, df$Year, sep=".")
-
-
 names(forest)[names(forest) == "Code"] <- "SpeciesCode"
 names(forest)[names(forest) == "Code.1"] <- "ForestCode"
 names(forest)[names(forest) == "Forest.bird..0.no..1.yes."] <- "ForestDependent"
 forest <- select(forest, -c(ForestDependent, Species))
 
 df <- merge(df, forest, by = "SpeciesCode", all.x = TRUE)
-
-
 
 
 # ------------------------#
@@ -161,39 +156,16 @@ df <- merge(df, forest, by = "SpeciesCode", all.x = TRUE)
 # Sum across the 11 stops and summarize so only 1 count per species per transect 
 # deals with duplicate species produced by merging of subspecies & hybrids above
 df$Count<-df$Stop1+df$Stop2+df$Stop3+df$Stop4+df$Stop5+df$Stop6+df$Stop7+df$Stop8+df$Stop9+df$Stop10+df$Stop11
-#summarize_df <- df %>% group_by(Transect, RouteNumber, Year, CountryNum, SpeciesCode, ForestCode) %>% summarize(Count = sum(Count))
+summarize_df <- df %>% group_by(Transect, RouteNumber, Year, CountryNum, SpeciesCode, ForestCode) %>% summarize(Count = sum(Count))
 
+missing <- summarize_df[is.na(summarize_df$ForestCode),]
+missing <- unique(missing$SpeciesCode)
+write.csv(missing, "no_forest_code.csv")
 
 # Select for only forest species 0 == forest obligate, 1 == edge; Canada; all years after 1999
-df<- df[which(df$ForestCode == 0),]
-df <- df[which(df$Year > 1999),]
-df<- df[which(df$CountryNum == 124),]
-
-library(plyr)
-# put into wide to get the same species list for every single site
-summarize_df <- ddply(df, c('Transect', 'SpeciesCode'), summarize, a = sum(Count))
-summarize_df_n <- reshape(summarize_df, idvar="Transect", timevar="SpeciesCode", direction="wide")
-summarize_df_n[is.na(summarize_df_n)] <- 0
-
-
-summarize_df_n <- summarize_df_n %>% distinct(Transect, .keep_all = TRUE)
-
-
-
-
-# save workspace & restart R (plyr won't work with tidyverse loaded in at the same time)
-library(tidyverse)
-
-# put back into long
-ddf_wide <- inner_join(df, summarize_df_n, by = "Transect", all.x = TRUE)
-ddf_wide2 <- ddf_wide %>% distinct(Transect, .keep_all = TRUE)
-
-# select out columns I don't need
-ddf_wide2 <- select(ddf_wide2, -c(X, AOU, SCINAME, COMMONNAME, ForestCode, Count, SpeciesCode, Stop1, Stop2, Stop3, Stop4, Stop5, Stop6, Stop7, Stop8, Stop9, Stop10, Stop11))
-
-
-canada_df <- reshape(ddf_wide2, v.names = "Count",  varying = 8:134, timevar = "SpeciesCode", times = names(ddf_wide2)[8:134], direction = 'long')
-canada_df <- select(canada_df, -id)
+summarize_df<- summarize_df[which(summarize_df$ForestCode == 0),]
+canada_df <- summarize_df[which(summarize_df$Year > 1999),]
+canada_df<- canada_df[which(canada_df$CountryNum == 124),]
 
 write.csv(canada_df,"canadaBBSdataset.csv")
 
@@ -202,7 +174,8 @@ write.csv(canada_df,"canadaBBSdataset.csv")
 # ------------------------#
 #   ADDING IN MORE INFO   |
 # ------------------------#
-
+canada_df <- read.csv("canadaBBSdataset.csv")
+canada_df$Transect <- paste(canada_df$RouteNumber, canada_df$Year, sep=".")
 
 #### FOREST COVER -------------------------
 # obtained from extracting % mean forest cover from GFC forest layers in each transect

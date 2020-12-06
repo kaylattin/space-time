@@ -37,5 +37,5 @@ n_distinct(richness_obs$ObsN)
 
 
 write.csv(total_obs, "observerdataset_totalabundance.csv")
-write.csv(richness_obs, "wholedataset_richness.csv")
+write.csv(richness_obs, "observerdataset_richness.csv")
 

@@ -4,9 +4,9 @@ library(tidyverse)
 library(openxlsx)
 library(readxl)
 
-spatial <- read.csv("spatialdataset_NOV12_D.csv")
-spatial_nd <- read.csv("spatialdataset_NOV12_ND.csv")
-temporal <- read.csv("temporaldataset_NOV12.csv")
+spatial <- read.csv("spatialdataset_DEC4_D.csv")
+spatialnd <- read.csv("spatialdataset_DEC6_ND.csv")
+temporal <- read.csv("temporaldataset_DEC4.csv")
 
 
 # ------------------------------------#
@@ -14,10 +14,14 @@ temporal <- read.csv("temporaldataset_NOV12.csv")
 # ------------------------------------#
 
 # find species that are not present at ANY of the spatial sites
-s.species <- spatial %>% group_by(SpeciesCode) %>%
-  summarise_at(vars(Count),list(Count = sum))
-s.species <- filter(s.species, !Count == 0)
+#s.species <- spatial %>% group_by(SpeciesCode) %>%
+  #summarise_at(vars(Count),list(Count = sum))
+#s.species <- filter(s.species, !Count == 0)
 
+# find species that are not present at ANY of the spatial sites - NO duplicates
+nd.species <- spatialnd %>% group_by(SpeciesCode) %>%
+  summarise_at(vars(Count),list(Count = sum))
+nd.species <- filter(nd.species, !Count == 0)
 
 # find species that are not present at ANY of the temporal sites
 t.species <- temporal %>% group_by(SpeciesCode) %>%
@@ -27,11 +31,14 @@ t.species <- filter(t.species, !Count == 0)
 # nspecies in spatial = 151, nspecies in temporal = 143
 # find only matched species that appear in both datasets
 t.species <- select(t.species, -Count)
-s.species <- select(s.species,  -Count)
-matched_species <- intersect(s.species, t.species) # 134 species in both datasets; 92 if forest bird only
+#s.species <- select(s.species,  -Count)
+nd.species <- select(nd.species,  -Count)
 
-spatial_new <- spatial[spatial$SpeciesCode %in% matched_species$SpeciesCode ,]
-spatial_new_nd <- spatial_nd[spatial_nd$SpeciesCode %in% matched_species$SpeciesCode , ]
+#matched_species <- intersect(s.species, t.species) # 134 species in both datasets; 92 if forest bird only
+matched_species <- intersect(nd.species, t.species)
+
+#spatial_new <- spatial[spatial$SpeciesCode %in% matched_species$SpeciesCode ,]
+spatial_new_nd <- spatialnd[spatialnd$SpeciesCode %in% matched_species$SpeciesCode , ]
 temporal_new <- temporal[temporal$SpeciesCode %in% matched_species$SpeciesCode ,]
 
 
@@ -42,11 +49,15 @@ temporal_new <- temporal[temporal$SpeciesCode %in% matched_species$SpeciesCode ,
 #write.csv(temporal_new, "temporaldataset_R.csv")
 
 # make them match before doing this
-data <- rbind(spatial_new, temporal_new)
+#data <- rbind(spatial_new, temporal_new)
+data$SpeciesRegion <- paste(data$SpeciesCode, data$Region, sep = "")
 #write.csv(data, "wholedataset_D_NOV12.csv")
 
-#data_nd <- rbind(spatial_new_nd, temporal_new)
-#write.csv(data_nd, "wholedataset_ND_NOV12.csv")
+nd_region <- c(1,3,4,9,10,11,13:20)
+temporal_new_nd <- temporal_new[temporal_new$Region %in% nd_region ,]
+data <- rbind(spatial_new_nd, temporal_new)
+data$SpeciesRegion <- paste(data$SpeciesCode, data$Region, sep = "")
+write.csv(data_nd, "wholedataset_ND_DEC6.csv")
 
 
 # -------------------------------#
@@ -117,16 +128,16 @@ d_filtered <- read.csv("wholedataset_FILTERED_NOV16.csv")
 ### finding list of species present are more than >50% or >40% of sites or years within their regions
 
 # find the number of unique routes in each region, in both spatial and temporal datasets
-spatial_rc <- d_filtered %>% group_by(space.time, Region) %>% summarise(RouteCount = n_distinct(RouteNumber))
+spatial_rc <- data %>% group_by(space.time, Region) %>% summarise(RouteCount = n_distinct(RouteNumber))
 spatial_rc <- spatial_rc %>% filter(space.time == 2)
 
-temporal_rc <- d_filtered %>% group_by(space.time, Region) %>% summarise(YearCount = n_distinct(Year))
+temporal_rc <- data %>% group_by(space.time, Region) %>% summarise(YearCount = n_distinct(Year))
 temporal_rc <- temporal_rc %>% filter(space.time == 1)
 
 
 
 # filter for species present >= 1 at a site or year
-df_present <- d_filtered %>% filter(Count >= 1)
+df_present <- data %>% filter(Count >= 1)
 
 # find number of spatial sites a species is present at within their region
 spatial_pc <- df_present %>% group_by(space.time, Region, SpeciesRegion) %>% summarise(SpatialPresent = n_distinct(Transect))
@@ -171,16 +182,17 @@ for(i in 1:nrows){
 }
 
 
-write.csv(rcpc, "species_over50_40.csv")
+write.csv(rcpc, "ND_species_over50_40_DEC6.csv")
 rcpc_new <- select(rcpc, c(SpeciesRegion, over50, over40))
 
-n_over50 <- sum(rcpc$over50) # 186 species
-n_over40 <- sum(rcpc$over40) # 241 species
+n_over50 <- sum(rcpc$over50) # 194 species
+n_over40 <- sum(rcpc$over40) # 243 species
 
 
 # split the og dataframe again into spatial and temporal
-df_final <- merge(d_filtered, rcpc_new, by = "SpeciesRegion")
+df_final <- merge(data, rcpc_new, by = "SpeciesRegion")
 
 df_40 <- df_final %>% filter(over40 == 1)
 
-write.csv(df_40, "wholedataset_speciesover40_NOV18.csv")
+write.csv(df_40, "wholedataset_speciesover40_DEC6_NODUPLICATES.csv")
+n_distinct(df_40$ObsN)

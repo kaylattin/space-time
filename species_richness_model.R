@@ -14,13 +14,13 @@ sr <- merge(sr, obsID, by = "ObsN", all.x = TRUE)
 space.time <- sr$space.time # categorical
 forest <- sr$Forest.cover # continuous 
 region <- sr$Region
-richness <- sr$SpeciesRichness # count
+richness <- sr$Richness # count
 observer <- sr$Obs_ID # categorical
 
 ### set up observer model data
 route <- sr_obs$Route_ID # categorical - index variable
 obs <- sr_obs$Obs_ID # categorical - index variable
-richness_obs <- sr_obs$SpeciesRichness
+richness_obs <- sr_obs$Richness
 ecozone <- sr_obs$Eco_ID # categorical - index variable
 
 
@@ -171,7 +171,7 @@ x = jagsUI(data = jags_dat,
            modules = NULL,
            model.file = "species_richness.r")
 
-list.save(x,"species_richness_fixedeffects.RData")
+list.save(x,"species_richness_fixedeffects_DEC5.RData")
 
 
 summary(x)
@@ -179,3 +179,70 @@ print(x)
 x$mean$beta_space_time #posterior means of the slope parameters
 x$mean$beta_mod
 x$n.eff
+
+out_ggs = ggs(x$samples)
+ggmcmc(out_ggs, file = "species_richness_summary_DEC5.pdf", param_page = 8)
+
+
+plot(x$mean$beta_space_time,)
+plot(x$mean$beta_mod)
+plot(x$mean$alpha)
+
+alpha_outcome <- exp(x$mean$alpha)
+plot(alpha_outcome)
+
+
+load("species_richness_fixedeffects_DEC5.RData")
+time <- x$mean$beta_space_time[,1]
+space <- x$mean$beta_space_time[,2]
+b <- data.frame(time, space)
+b$region <- seq(1:20)
+
+
+s_rich <- ggplot(b, mapping = aes(space, time)) + 
+  geom_point(
+    colour = "#EDAE49",
+    alpha = 0.7,
+    size = 3
+  ) +
+  labs(
+    x = "Space slope", 
+    y = "Time slope",
+    size = 4
+  ) +
+  theme_bw()
+
+s_rich <- s_rich + theme(legend.position = "none")
+
+
+mod <- x$mean$beta_mod
+index <- seq(1:20)
+mod <- data.frame(mod, index)
+
+r_mod <-  ggplot(mod, mapping = aes(index, mod)) +
+  geom_point(
+    colour = "#EDAE49",
+    alpha = 0.5,
+    size = 3
+  ) +
+  labs(
+    x = "SpeciesRegion Index", 
+    y = "",
+    size = 4
+  ) +
+  theme_bw()
+
+r_mod
+
+
+
+beta <- data.frame(x$mean$beta_space_time, x$sd$beta_space_time, x$q97.5$beta_space_time)
+alpha <- data.frame(x$mean$alpha, x$sd$alpha, x$q97.5$alpha)
+beta_mod <- data.frame(x$mean$beta_mod, x$sd$beta_mod, x$q97.5$beta_mod)
+obs <- data.frame(x$mean$obs_offset, x$sd$obs_offset, x$q97.5$obs_offset)
+
+
+write.csv(beta, "richness_beta.csv")
+write.csv(alpha, "richness_alpha.csv")
+write.csv(beta_mod, "richness_beta_mod.csv")
+write.csv(obs, "richness_obs_offset.csv")
