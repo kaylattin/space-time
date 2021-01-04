@@ -102,7 +102,15 @@ parameters {
   vector[nspregions] alpha;
   vector[ncounts] noise;
   matrix[nspregions, nspacetime] beta_space_time;
-  real<lower=0> sdnoise; // noise sd;
+  real<lower=0> sdnoise;
+  
+  vector[ncounts_obs] noise_obs;
+  vector[nspecies_obs] species_effect;
+  vector[nroute_obs] route_effect;
+  vector[necozone_obs] ecozone_effect;
+  vector[nobs] obs_offset;
+  
+  
 }
 model {
   vector[ncounts] lambda;
