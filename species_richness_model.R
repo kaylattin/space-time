@@ -13,7 +13,7 @@ sr <- merge(sr, obsID, by = "ObsN", all.x = TRUE)
 ### set up main analysis taa
 space.time <- sr$space.time # categorical
 forest <- sr$Forest.cover # continuous 
-region <- sr$Region
+region <- as.integer(as.factor(sr$Region))
 richness <- sr$Richness # count
 observer <- sr$Obs_ID # categorical
 
@@ -53,24 +53,29 @@ model {
 ######### priors & constraints ###########
 sd_noiset ~ dt(0, 1, 20) T(0,) # absolute value (truncated >0 ) of student's-t centred on 0 / half-t prior on standard deviation
 sd_noise <- 0.1*sd_noiset # puts 95% of sdnoise below ~0.5 on the log scale
-taunoise <- pow(sd_noise, -2) # converts back to precision (inverse of variance)
+taunoise <- 1/pow(sd_noise, 2) # converts back to precision (inverse of variance)
 
 sd_route ~ dt(0, 1, 4) T(0,) # 95% below ~0.1 on the log scale
-tau_route <- pow(sd_route, -2)
+tau_route <- 1/pow(sd_route, 2)
   
 sd_obs ~ dt(0, 1, 4) T(0,)
-tau_obs <- pow(sd_obs, -2)
+tau_obs <- 1/pow(sd_obs, 2)
       
 sd_noise_obs ~ dt(0, 1, 4) T(0,)
-tau_noise_obs <- pow(sd_noise_obs, -2)
+tau_noise_obs <- 1/pow(sd_noise_obs, 2)
     
 sd_beta_modt ~ dt(0, 1, 4) T(0,)
 sd_beta_mod <- 0.5 * sd_beta_modt
-tau_beta_mod <- pow(sd_beta_mod, -2)
+tau_beta_mod <- 1/pow(sd_beta_mod, 2)
 
-#sd_betat ~ dt(0, 1, 20) T(0,)
-#sd_beta <- 0.5 * sd_betat
-#tau_beta <- pow(sd_beta, -2)
+# priors on alpha vars
+sd_alpha ~ dt(0, 1, 20) T(0,) 
+tau_alpha <- 1/pow(sd_alpha, 2) # prior on precision
+
+sd_betat ~ dt(0, 1, 20) T(0,)
+sd_beta <- 0.5 * sd_betat
+tau_beta <- 1/pow(sd_beta, 2)
+
 
   
 ######### observer model ###########
@@ -108,11 +113,11 @@ for(k in 1:nrichness) {
 for(r in 1:nregions){
 
 ## prior on alpha
-alpha[r] ~ dnorm(0, 0.01)
+alpha[r] ~ dnorm(0, tau_alpha)
 
 ## priors on beta
 beta_mod[r] ~ dnorm(0, tau_beta_mod)
-beta_space_time[r,1] ~ dnorm(0,0.01) # or beta_space_time[r,1] ~ dnorm(0,tau.beta_space_time) if random effect
+beta_space_time[r,1] ~ dnorm(0, tau_beta) # or beta_space_time[r,1] ~ dnorm(0,tau.beta_space_time) if random effect
 beta_space_time[r,2] <- beta_space_time[r,1] + beta_mod[r] # space slope == 2
 
 
@@ -171,7 +176,7 @@ x = jagsUI(data = jags_dat,
            modules = NULL,
            model.file = "species_richness.r")
 
-list.save(x,"species_richness_fixedeffects_DEC5.RData")
+list.save(x,"species_richness_randomeffects_DEC8.RData")
 
 
 summary(x)
@@ -181,18 +186,10 @@ x$mean$beta_mod
 x$n.eff
 
 out_ggs = ggs(x$samples)
-ggmcmc(out_ggs, file = "species_richness_summary_DEC5.pdf", param_page = 8)
+ggmcmc(out_ggs, file = "species_richness_randomeffects_DEC8.pdf", param_page = 8)
 
 
-plot(x$mean$beta_space_time,)
-plot(x$mean$beta_mod)
-plot(x$mean$alpha)
-
-alpha_outcome <- exp(x$mean$alpha)
-plot(alpha_outcome)
-
-
-load("species_richness_fixedeffects_DEC5.RData")
+load("species_richness_randomeffects_DEC8.RData")
 time <- x$mean$beta_space_time[,1]
 space <- x$mean$beta_space_time[,2]
 b <- data.frame(time, space)
@@ -213,7 +210,7 @@ s_rich <- ggplot(b, mapping = aes(space, time)) +
   theme_bw()
 
 s_rich <- s_rich + theme(legend.position = "none")
-
+s_rich
 
 mod <- x$mean$beta_mod
 index <- seq(1:20)
@@ -235,14 +232,13 @@ r_mod <-  ggplot(mod, mapping = aes(index, mod)) +
 r_mod
 
 
+#beta <- data.frame(x$mean$beta_space_time, x$sd$beta_space_time, x$q97.5$beta_space_time)
+#alpha <- data.frame(x$mean$alpha, x$sd$alpha, x$q97.5$alpha)
+#beta_mod <- data.frame(x$mean$beta_mod, x$sd$beta_mod, x$q97.5$beta_mod)
+#obs <- data.frame(x$mean$obs_offset, x$sd$obs_offset, x$q97.5$obs_offset)
 
-beta <- data.frame(x$mean$beta_space_time, x$sd$beta_space_time, x$q97.5$beta_space_time)
-alpha <- data.frame(x$mean$alpha, x$sd$alpha, x$q97.5$alpha)
-beta_mod <- data.frame(x$mean$beta_mod, x$sd$beta_mod, x$q97.5$beta_mod)
-obs <- data.frame(x$mean$obs_offset, x$sd$obs_offset, x$q97.5$obs_offset)
 
-
-write.csv(beta, "richness_beta.csv")
-write.csv(alpha, "richness_alpha.csv")
-write.csv(beta_mod, "richness_beta_mod.csv")
-write.csv(obs, "richness_obs_offset.csv")
+#write.csv(beta, "richness_beta.csv")
+#write.csv(alpha, "richness_alpha.csv")
+#write.csv(beta_mod, "richness_beta_mod.csv")
+#write.csv(obs, "richness_obs_offset.csv")

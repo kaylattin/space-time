@@ -2,13 +2,7 @@
 library(rstan)
 setwd("/Users/kayla/Documents/space-time")
 dat <- read.csv("wholedataset_speciesover40_NOV18.csv")
-#obsdat <- read.csv("observerdataset_NOV12.csv")
 
-#dat_species <- dat %>% distinct(SpeciesCode)
-#specieslist <- dat_species$SpeciesCode
-#dat_obs <- obsdat[obsdat$SpeciesCode %in% specieslist ,]
-
-#write.csv(dat_obs, "observerdataset_NOV23.csv")
 dat_obs <- read.csv("observerdataset_NOV23.csv")
 
 obsID <- select(dat_obs, c(ObsN, Obs_ID))
@@ -47,6 +41,8 @@ nroutes_obs <- length(unique(route)) # number of routes
 nspecies_obs <- length(unique(species_obs)) # number of species in observer dataset
 necozones_obs <- length(unique(ecozone)) # number of ecozones
 
+
+### VERY SIMPLIFIED TEST MODEL WITHOUT OBSERVER SUBMODEL AND BETA_MOD
 
 dat_slim <- list(
   ncounts = nrow(dat),
@@ -95,12 +91,16 @@ model {
 
 
 generated quantities{
-  vector[ncounts] diff;
-  diff = beta_space_time[,2] - beta_space_time[,1];
+  vector[nspregions] diff;
 
+  diff = beta_space_time[,2] - beta_space_time[,1];
 }
+
 "
 
 model <- stan(model_code = code,
               dat = dat_slim,
-              iter = 1000)
+              chains = 3,
+              cores = 3,
+              iter = 4000,
+              max_treedepth = 15)
