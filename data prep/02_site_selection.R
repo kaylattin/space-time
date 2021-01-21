@@ -1,16 +1,28 @@
-
+library(sp)
+library(sf)
+library(rgdal)
 library(tidyverse)
+library(rgeos)
+library(openxlsx)
+
 
 # Load in data
 bbs <- read.csv("clean_bbs_dataset.csv", header = T)
 ecoregions <- read.csv("routes_ecoregions.csv", header=T)
+shp <- readOGR("buffer_dataset_1km_proj_V3.shp")
 
 
-
+# Set up index for routes
 bbs$rte_id <- as.integer(as.factor(bbs$RouteNumber))
 
-rtes <- distinct(bbs, RouteNumber, rte_id)
+# Get a list of all distinct bbs routes
+rtes <- distinct(bbs, RouteNumber, rte_id, Ecoregion_L1Code, Ecoregion_L1Name)
 nrtes <- length(unique(bbs$rte_id))
+
+
+
+
+## TEMPORAL SITE SELECTION ---------------------------------------------------------------------------------------
 
 
 # Find the new time ranges from 2000 to 2019 for routes after accounting for years with BBS data
@@ -26,11 +38,13 @@ for(i in 1:nrtes) {
   max <- max(r$Year)
   
   for(n in 1:n) {
+    
+    # If the year on iteration n is the minimum (earliest) year for that route, then copy over its % forest cover
   if(r$Year[n] == min) {
     rtes$firstyear[i] <- r$Year[n]
     rtes$firstcover[i] <- r$Forest.cover[n]
   }
-    
+    # If the year on iteration n is the maximum (latest) year for that route, then copy over its % forest cover
   if(r$Year[n] == max){
     rtes$lastyear[i] <- r$Year[n]
     rtes$lastcover[i] <- r$Forest.cover[n]
@@ -44,17 +58,83 @@ for(i in 1:nrtes) {
   
 }
 
-# Find the change and select for sites with forest cover change >= 20% within the time range (ideally from 2000 to 2019)
+# Find the change in % forest between first and last years with bbs data
 rtes$change <- rtes$firstcover - rtes$lastcover
+
+# select for sites with forest cover change >= 20% within the time range (ideally from 2000 to 2019)
 temporal <- rtes[which(rtes$change >= 0.20), ]
 
 
-# next steps:
-# find list of sites with data in 2019
-# import buffered dataset shapefile
-# filter to spatial sites with data in 2019
 
-# for each temporal site, find a list of spatial sites with data in 2019 that are in the same ecoregion
-# for each temporal site, select spatial sites from the list above that are within 100 km (will need to use sp or sf packages and the shapefiles)
-# will probably need to write a "for loop" to cycle through each temporal site, and then that will apply the distance criteria
-# so a list of 51 spatial site lists for each of the 51 temporal sites 
+## SPATIAL SITE SELECTION -------------------------------------------------------------------------------------
+
+
+# Find bbs routes with data in 2019
+sp2019 <- bbs[which(bbs$Year == 2019) , ]
+sp2019 <- distinct(sp2019, RouteNumber, Year, Forest.cover, Ecoregion_L1Code, Ecoregion_L1Name)
+
+ntemp <- nrow(temporal)
+spEco.list <- vector("list")
+
+# Find lists of routes that are in the same ecoregion as each temporal route and fall within the same % forest cover range
+for(i in 1:ntemp) {
+  tempSite <- temporal[i,]
+  tempEco <- tempSite$Ecoregion_L1Code
+  
+  # Select for sites that fall in the same ecoregion and fall in the same forest cover gradient established by the temporal site's first and last year forest cover
+  # give or take 10% for now because candidate turnout was so low ... will need to put more thought into this threshold
+  spEco.list[[i]] <- sp2019[which(sp2019$Forest.cover <= (temporal$firstcover+0.10) & sp2019$Forest.cover >= (temporal$lastcover-0.10) & sp2019$Ecoregion_L1Code == tempEco), ]
+  
+}
+
+# Convert route shapefile into a spatial feature layer - allows us to use dpylr:: functions on attribute table
+shpSF <- st_as_sf(shp)
+shpSF <- st_transform(shpSF, crs = "+proj=lcc +lat_1=20 +lat_2=60 +lat_0=40 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs") # reproject to North America Lambert Conic
+
+
+spDist.list <- vector("list")
+
+
+for(i in 1:ntemp) {
+  
+  # Extract the shapefile point of the temporal route i 
+  tempShp_sf <- shpSF %>% filter(rteno == temporal$RouteNumber[i])
+  # Convert back to spatial object
+  tempShp <- as(tempShp_sf, "Spatial")
+  
+  # Buffer by 100 km around temporal site (distance criterion)
+  tempBuff <- gBuffer(tempShp, width = 100000) # 100 km, or can do 200 km or 300 km
+  
+  # Extract list of spatial candidates for the temporal site (same ecoregion)
+  spDF <- data.frame(spEco.list[[i]])
+  spList <- spDF$RouteNumber
+  spShp_sf <- shpSF %>% filter(rteno %in% spList)
+  # Convert back to spatial object
+  spShp <- as(spShp_sf, "Spatial")
+  
+  # Find spatial candidates that fall within the 200 km distance
+  dist <- gContains(tempBuff, spShp, byid = TRUE)
+  distDf <- data.frame(spList, dist)
+  
+  
+  # Final list of spatial route candidates
+  spDist.list[[i]] <- distDf %>% filter(buffer == "TRUE") %>% dplyr::select(spList)
+  
+}
+
+
+# n = length of longest list (replace as needed)
+n <- 8
+for(i in 1:51){
+  df <- unlist(spDist.list[[i]])
+  length(df) <- n
+  
+  spDist.list[[i]] <- df
+}
+
+# Cbind list of lists 
+final <- mapply(cbind, spDist.list)
+# Rename columns to be the temporal route number
+colnames(final) <- temporal$RouteNumber
+
+write.csv(final, "spatial_candidates_100km.csv")
