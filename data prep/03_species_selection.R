@@ -11,10 +11,13 @@ bbl <- read.csv("bbl_codes.csv") # had to make manual changes to YRWA, DEJU in E
 
 
 
-# some prep - removing spatial & temporal sites
-spatial <- spatial %>% filter(!ref == 14130)
 
-temporal <- temporal %>% filter(!ref == 14130)
+# some prep - removing spatial & temporal sites that have <10 spatial matches or bbs years
+# leaves me with 40 regions!
+remove <- c(81050, 14188, 14186, 14136, 14132,14130,11256,6073,4141,14410,68373,4105,4078)
+spatial <- spatial %>% filter(!ref %in% remove)
+
+temporal <- temporal %>% filter(!ref %in% remove)
 
 # ------------------------------------#
 #    MATCH SPECIES IN SPACE & TIME    |
@@ -80,7 +83,7 @@ t.species <- select(t.species, -Count)
 s.species <- select(s.species,  -Count)
 
 # Find species present (Count > 0) in temporal years and spatial sites for each region
-for(i in 1:52) {
+for(i in 1:40) {
   t[[i]] <- filter(t.species, Region == i)
   s[[i]] <- filter(s.species, Region == i)
   
@@ -88,7 +91,7 @@ for(i in 1:52) {
 }
 
 # Code to prep for unlisting to summary table
-for(i in 1:52){
+for(i in 1:40){
   dummy <- species[[i]]
   speciesv2[[i]] <- dummy %>% select(-Region)
   sp <- unlist(speciesv2[[i]])
@@ -108,8 +111,8 @@ write.xlsx(species, "matched_species_by_region_WORKBOOK.xlsx")
 spatial_r <- vector("list")
 temporal_r <- vector("list")
 
-for(i in 1:52) {
-  species <- read_excel("matched_species_by_region.xlsx", sheet = i)
+for(i in 1:40) {
+  species <- read_excel("matched_species_by_region_WORKBOOK.xlsx", sheet = i)
   s.region <- spatial_new %>% filter(Region == i)
   t.region <- temporal_new %>% filter(Region == i)
   
@@ -176,26 +179,27 @@ for(i in 1:nrows){
 
 # repeat for over 40%
 for(i in 1:nrows){
-  if(rcpc$Prop.Spatial[i] >= 0.40 & rcpc$Prop.Temporal[i] >= 0.40){
-    rcpc$over40[i] <- 1
+  if(rcpc$Prop.Spatial[i] >= 0.30 & rcpc$Prop.Temporal[i] >= 0.30){
+    rcpc$over30[i] <- 1
   }
   else {
-    rcpc$over40[i] <- 0
+    rcpc$over30[i] <- 0
   }
 }
 
 
 write.csv(rcpc, "species_prop40_50.csv")
-rcpc_new <- select(rcpc, c(SpeciesRegion, over50, over40))
+rcpc_new <- select(rcpc, c(SpeciesRegion, over50, over30))
 
-n_over50 <- sum(rcpc$over50) # 194 species
-n_over40 <- sum(rcpc$over40) # 243 species
+n_over50 <- sum(rcpc$over50) # 310 speciesregions
+n_over40 <- sum(rcpc$over40) # 405 speciesregions
 
 
 # split the og dataframe again into spatial and temporal
 df_final <- merge(data, rcpc_new, by = "SpeciesRegion")
 
-df_40 <- df_final %>% filter(over40 == 1)
+df_30 <- df_final %>% filter(over30 == 1)
 
 write.csv(df_40, "whole_dataset_speciesover40.csv")
 
+n_distinct(df_30$BBL)
