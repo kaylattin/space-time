@@ -4,8 +4,9 @@ library(rgdal)
 library(tidyverse)
 library(rgeos)
 library(openxlsx)
+library(rlist)
 
-
+setwd("/Users/kayla/Documents/space-time/data prep")
 # Load in data
 bbs <- read.csv("clean_bbs_dataset.csv", header = T)
 ecoregions <- read.csv("routes_ecoregions.csv", header=T)
@@ -63,10 +64,12 @@ rtes$change <- rtes$firstcover - rtes$lastcover
 
 # select for sites with forest cover change >= 20% within the time range (ideally from 2000 to 2019)
 temporal <- rtes[which(rtes$change >= 0.20), ]
+temporal$nyears <- temporal$lastyear - temporal$firstyear
 
 
 
 ## SPATIAL SITE SELECTION -------------------------------------------------------------------------------------
+
 
 
 # Find bbs routes with data in 2019
@@ -94,7 +97,6 @@ shpSF <- st_transform(shpSF, crs = "+proj=lcc +lat_1=20 +lat_2=60 +lat_0=40 +lon
 
 spDist.list <- vector("list")
 
-
 for(i in 1:ntemp) {
   
   # Extract the shapefile point of the temporal route i 
@@ -102,8 +104,8 @@ for(i in 1:ntemp) {
   # Convert back to spatial object
   tempShp <- as(tempShp_sf, "Spatial")
   
-  # Buffer by 100 km around temporal site (distance criterion)
-  tempBuff <- gBuffer(tempShp, width = 100000) # 100 km, or can do 200 km or 300 km
+  # Buffer by 300 km around temporal site (distance criterion)
+  tempBuff <- gBuffer(tempShp, width = 300000) # 100 km, or can do 200 km or 300 km
   
   # Extract list of spatial candidates for the temporal site (same ecoregion)
   spDF <- data.frame(spEco.list[[i]])
@@ -112,29 +114,67 @@ for(i in 1:ntemp) {
   # Convert back to spatial object
   spShp <- as(spShp_sf, "Spatial")
   
-  # Find spatial candidates that fall within the 200 km distance
+  # Find spatial candidates that fall within the 100 km distance
   dist <- gContains(tempBuff, spShp, byid = TRUE)
   distDf <- data.frame(spList, dist)
   
   
   # Final list of spatial route candidates
-  spDist.list[[i]] <- distDf %>% filter(buffer == "TRUE") %>% dplyr::select(spList)
+  distDf <- distDf %>% filter(buffer == "TRUE") %>% dplyr::select(spList)
+  
+  if(nrow(distDf) > 0) {
+  distDf$ref <- temporal$RouteNumber[i]
+  spDist.list[[i]] <- distDf
+  }
+  
+  spDist.list[[i]] <- distDf
   
 }
 
 
-# n = length of longest list (replace as needed)
-n <- 8
+## get summary table
+sp.list <- vector("list")
+
 for(i in 1:51){
-  df <- unlist(spDist.list[[i]])
+  dummy <- spDist.list[[i]]
+  
+  if(nrow(dummy) > 0) {
+  dummy <- dummy %>% select(-ref)
+  }
+  
+  sp.list[[i]] <- dummy
+}
+
+
+# n = length of longest list in spDist.list (replace as needed if changing criteria above)
+n <- 86
+for(i in 1:51){
+  df <- unlist(sp.list[[i]])
   length(df) <- n
   
-  spDist.list[[i]] <- df
+  sp.list[[i]] <- df
 }
 
 # Cbind list of lists 
-final <- mapply(cbind, spDist.list)
+final <- mapply(cbind, sp.list)
 # Rename columns to be the temporal route number
 colnames(final) <- temporal$RouteNumber
 
-write.csv(final, "spatial_candidates_100km.csv")
+write.csv(final, "spatial_candidates_300km.csv")
+
+
+
+### filter datasets
+spatial <- do.call("rbind", spDist.list)
+spatial$Transect <- paste(spatial$spList, "2019", sep=".")
+spatial <- select(spatial, -c(spList))
+spatial_merge <- merge(spatial, bbs, by = "Transect", all.x = FALSE)
+spatial_merge$space.time <- rep(2)
+write.csv(spatial_merge, "spatial_dataset.csv")
+
+
+temp <- temporal$RouteNumber
+temporal_f <- bbs %>% filter(RouteNumber %in% temp)
+temporal_f$space.time <- rep(1)
+
+write.csv(temporal_f, "temporal_dataset.csv")
