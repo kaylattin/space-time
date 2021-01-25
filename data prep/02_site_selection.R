@@ -63,32 +63,46 @@ for(i in 1:nrtes) {
 rtes$change <- rtes$firstcover - rtes$lastcover
 
 # select for sites with forest cover change >= 20% within the time range (ideally from 2000 to 2019)
-temporal <- rtes[which(rtes$change >= 0.20), ]
+temporal_loss <- rtes[which(rtes$change >= 0.20), ]
+temporal_gain <- rtes[which(rtes$change <= -0.20),]
 temporal$nyears <- temporal$lastyear - temporal$firstyear
+
+temporal <- rbind(temporal_loss, temporal_gain)
 
 
 
 ## SPATIAL SITE SELECTION -------------------------------------------------------------------------------------
-
-
-
 # Find bbs routes with data in 2019
 sp2019 <- bbs[which(bbs$Year == 2019) , ]
 sp2019 <- distinct(sp2019, RouteNumber, Year, Forest.cover, Ecoregion_L1Code, Ecoregion_L1Name)
 
-ntemp <- nrow(temporal)
+ntemp <- nrow(temporal_loss)
 spEco.list <- vector("list")
 
 # Find lists of routes that are in the same ecoregion as each temporal route and fall within the same % forest cover range
-for(i in 1:ntemp) {
-  tempSite <- temporal[i,]
+for(i in 1:51) {
+  tempSite <- temporal_loss[i,]
   tempEco <- tempSite$Ecoregion_L1Code
   
   # Select for sites that fall in the same ecoregion and fall in the same forest cover gradient established by the temporal site's first and last year forest cover
   # give or take 10% for now because candidate turnout was so low ... will need to put more thought into this threshold
-  spEco.list[[i]] <- sp2019[which(sp2019$Forest.cover <= (temporal$firstcover+0.10) & sp2019$Forest.cover >= (temporal$lastcover-0.10) & sp2019$Ecoregion_L1Code == tempEco), ]
+  spEco.list[[i]] <- sp2019[which(sp2019$Forest.cover <= (temporal_loss$firstcover+0.10) & sp2019$Forest.cover >= (temporal_loss$lastcover-0.10) & sp2019$Ecoregion_L1Code == tempEco), ]
   
 }
+
+spEco.list_gain <- vector("list")
+
+for(i in 1:2) {
+  tempSite <- temporal_gain[i,]
+  tempEco <- tempSite$Ecoregion_L1Code
+  
+  # Select for sites that fall in the same ecoregion and fall in the same forest cover gradient established by the temporal site's first and last year forest cover
+  # give or take 10% for now because candidate turnout was so low ... will need to put more thought into this threshold
+  spEco.list_gain[[i]] <- sp2019[which(sp2019$Forest.cover >= (temporal_gain$firstcover+0.10) & sp2019$Forest.cover <= (temporal_gain$lastcover-0.10) & sp2019$Ecoregion_L1Code == tempEco), ]
+  
+}
+
+spEco.list <- c(spEco.list, spEco.list_gain)
 
 # Convert route shapefile into a spatial feature layer - allows us to use dpylr:: functions on attribute table
 shpSF <- st_as_sf(shp)
@@ -97,7 +111,7 @@ shpSF <- st_transform(shpSF, crs = "+proj=lcc +lat_1=20 +lat_2=60 +lat_0=40 +lon
 
 spDist.list <- vector("list")
 
-for(i in 1:ntemp) {
+for(i in 1:53) {
   
   # Extract the shapefile point of the temporal route i 
   tempShp_sf <- shpSF %>% filter(rteno == temporal$RouteNumber[i])
@@ -135,7 +149,7 @@ for(i in 1:ntemp) {
 ## get summary table
 sp.list <- vector("list")
 
-for(i in 1:51){
+for(i in 1:53){
   dummy <- spDist.list[[i]]
   
   if(nrow(dummy) > 0) {
@@ -148,7 +162,7 @@ for(i in 1:51){
 
 # n = length of longest list in spDist.list (replace as needed if changing criteria above)
 n <- 86
-for(i in 1:51){
+for(i in 1:53){
   df <- unlist(sp.list[[i]])
   length(df) <- n
   
