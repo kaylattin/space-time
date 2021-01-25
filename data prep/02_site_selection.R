@@ -9,6 +9,7 @@ library(rlist)
 setwd("/Users/kayla/Documents/space-time/data prep")
 # Load in data
 bbs <- read.csv("clean_bbs_dataset.csv", header = T)
+bbs$Transect <- paste(bbs$RouteNumber, bbs$Year, sep = ".")
 ecoregions <- read.csv("routes_ecoregions.csv", header=T)
 shp <- readOGR("buffer_dataset_1km_proj_V3.shp")
 
@@ -65,10 +66,10 @@ rtes$change <- rtes$firstcover - rtes$lastcover
 # select for sites with forest cover change >= 20% within the time range (ideally from 2000 to 2019)
 temporal_loss <- rtes[which(rtes$change >= 0.20), ]
 temporal_gain <- rtes[which(rtes$change <= -0.20),]
-temporal$nyears <- temporal$lastyear - temporal$firstyear
+
 
 temporal <- rbind(temporal_loss, temporal_gain)
-
+temporal$nyears <- temporal$lastyear - temporal$firstyear
 
 
 ## SPATIAL SITE SELECTION -------------------------------------------------------------------------------------

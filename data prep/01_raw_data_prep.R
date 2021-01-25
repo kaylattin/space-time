@@ -105,10 +105,11 @@ dd <- d %>%  filter(!grepl('unid.|hybrid', English_Common_Name))
 # Sum across the 11 stops and summarize so only 1 count per species per transect 
 # deals with duplicate species produced by merging of subspecies & hybrids above
 dd$Count<-dd$Stop1+dd$Stop2+dd$Stop3+dd$Stop4+dd$Stop5+dd$Stop6+dd$Stop7+dd$Stop8+dd$Stop9+dd$Stop10+dd$Stop11
+summarize_df <- dd %>% group_by(Transect, RouteNumber, Year, CountryNum, English_Common_Name) %>% summarize(Count = sum(Count))
 
 
 # Select years >= 2000
-df <- dd[which(dd$Year >= 2000),]
+df <- summarize_df[which(summarize_df$Year >= 2000),]
 
 write.csv(df, "canada_us_bbs.csv")
 
@@ -133,7 +134,7 @@ ddf <- merge(df, forest_long, by = "Transect")
 
 
 ### ECOREGIONS EPA LEVEL 1 obtained from overlay in ArcGis ---------------------------------------------------------------
-ecoregions <- read.csv("routes_ecoregions.csv", header=T)-
+ecoregions <- read.csv("routes_ecoregions.csv", header=T)
 
 ddf <- merge(ddf, ecoregions, by = "RouteNumber")
 
