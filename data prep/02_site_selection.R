@@ -79,6 +79,7 @@ sp2019 <- distinct(sp2019, RouteNumber, Year, Forest.cover, Ecoregion_L1Code, Ec
 
 ntemp <- nrow(temporal_loss)
 spEco.list <- vector("list")
+spEco.list <- vector("list")
 
 # Find lists of routes that are in the same ecoregion as each temporal route and fall within the same % forest cover range
 for(i in 1:51) {
@@ -87,7 +88,7 @@ for(i in 1:51) {
   
   # Select for sites that fall in the same ecoregion and fall in the same forest cover gradient established by the temporal site's first and last year forest cover
   # give or take 10% for now because candidate turnout was so low ... will need to put more thought into this threshold
-  spEco.list[[i]] <- sp2019[which(sp2019$Forest.cover <= (temporal_loss$firstcover+0.10) & sp2019$Forest.cover >= (temporal_loss$lastcover-0.10) & sp2019$Ecoregion_L1Code == tempEco), ]
+  spEco.list[[i]] <- sp2019 %>% filter(Ecoregion_L1Code == tempEco) %>% filter(Forest.cover <= (tempSite$firstcover+0.05)) %>% filter(Forest.cover >= (tempSite$lastcover-0.05))
   
 }
 
@@ -99,7 +100,7 @@ for(i in 1:2) {
   
   # Select for sites that fall in the same ecoregion and fall in the same forest cover gradient established by the temporal site's first and last year forest cover
   # give or take 10% for now because candidate turnout was so low ... will need to put more thought into this threshold
-  spEco.list_gain[[i]] <- sp2019[which(sp2019$Forest.cover >= (temporal_gain$firstcover+0.10) & sp2019$Forest.cover <= (temporal_gain$lastcover-0.10) & sp2019$Ecoregion_L1Code == tempEco), ]
+  spEco.list_gain[[i]] <- sp2019 %>% filter(Ecoregion_L1Code == tempEco) %>% filter(Forest.cover >= (tempSite$firstcover-0.05)) %>% filter(Forest.cover <= (tempSite$lastcover+0.05))
   
 }
 
@@ -123,6 +124,7 @@ for(i in 1:53) {
   tempBuff <- gBuffer(tempShp, width = 300000) # 100 km, or can do 200 km or 300 km
   
   # Extract list of spatial candidates for the temporal site (same ecoregion)
+  if(nrow(spEco.list[[i]]) > 0) {
   spDF <- data.frame(spEco.list[[i]])
   spList <- spDF$RouteNumber
   spShp_sf <- shpSF %>% filter(rteno %in% spList)
@@ -144,6 +146,11 @@ for(i in 1:53) {
   
   spDist.list[[i]] <- distDf
   
+  }
+  
+  else {
+    spDist.list[[i]] <- paste("need to remove!")
+  }
 }
 
 
@@ -162,7 +169,7 @@ for(i in 1:53){
 
 
 # n = length of longest list in spDist.list (replace as needed if changing criteria above)
-n <- 86
+n <- 88
 for(i in 1:53){
   df <- unlist(sp.list[[i]])
   length(df) <- n
@@ -175,7 +182,7 @@ final <- mapply(cbind, sp.list)
 # Rename columns to be the temporal route number
 colnames(final) <- temporal$RouteNumber
 
-write.csv(final, "spatial_candidates_300km.csv")
+write.csv(final, "spatial_candidates_300km_5p.csv")
 
 
 
@@ -185,11 +192,13 @@ spatial$Transect <- paste(spatial$spList, "2019", sep=".")
 spatial <- select(spatial, -c(spList))
 spatial_merge <- merge(spatial, bbs, by = "Transect", all.x = FALSE)
 spatial_merge$space.time <- rep(2)
-write.csv(spatial_merge, "spatial_dataset.csv")
+write.csv(spatial_merge, "spatial_dataset_5p.csv")
 
 
 temp <- temporal$RouteNumber
 temporal_f <- bbs %>% filter(RouteNumber %in% temp)
 temporal_f$space.time <- rep(1)
 
-write.csv(temporal_f, "temporal_dataset.csv")
+write.csv(temporal_f, "temporal_dataset_5p.csv")
+
+
