@@ -5,20 +5,41 @@ library(tidyverse)
 library(rstan)
 rm(list = ls())
 d <- read.csv("whole_dataset_over40_5p.csv")
+d_obs <- read.csv("observer_dataset_over40.csv")
 
+obsID <- select(d_obs, c(ObsN, Obs_ID))
+obsID <- obsID %>% distinct(ObsN, Obs_ID)
+d <- merge(d, obsID, by = "ObsN", all.x = TRUE)
+
+d_obs <- d_obs[!is.na(d_obs$Eco_ID),]
 
 ### my attempt at adapting this model to RStan --------------------------------------------------------
 
 d_slim <- list(
   ncounts = nrow(d),
-  nspreg = length(unique(sp.region)),
+  nspreg = length(unique(d$SpeciesRegion)),
   nst = 2,
   
   count = ((d$Count - mean(d$Count)) / sd(d$Count)),
   st = d$space.time,
   spreg = as.integer(as.factor(d$SpeciesRegion)), # standardized
   obs = d$Obs_ID,
-  pforest = ((d$Forest.cover - mean(d$Forest.cover)) / sd(d$Forest.cover)) # standardized
+  pforest = ((d$Forest.cover - mean(d$Forest.cover)) / sd(d$Forest.cover)), # standardized
+  
+  
+  count_obs = ((d_obs$Count - mean(d_obs$Count)) / sd(d_obs$Count)), # standardized
+  species_obs = as.integer(as.factor(d_obs$BBL)),
+  route_obs = d_obs$Route_ID,
+  ecoreg_obs = d_obs$Eco_ID,
+  obs_obs = d_obs$Obs_ID,
+  
+  ncounts_obs = nrow(d_obs),
+  nspecies_obs = length(unique(d_obs$BBL)),
+  nroutes_obs = length(unique(d_obs$Route_ID)),
+  necoreg_obs = length(unique(d_obs$Eco_ID)), 
+  nobs_obs = length(unique(d_obs$Obs_ID)),
+
+  
 )
 
 
@@ -171,9 +192,6 @@ model <- stan(model_code = code,
               iter = 4000,
               control = list(adapt_delta = 0.99,
                              max_treedepth = 15))
-
-
-save(model, file = "first_model_run.RData")
 
 
 
