@@ -87,7 +87,7 @@ for(i in 1:51) {
   tempEco <- tempSite$Ecoregion_L1Code
   
   # Select for sites that fall in the same ecoregion and fall in the same forest cover gradient established by the temporal site's first and last year forest cover
-  # give or take 10% for now because candidate turnout was so low ... will need to put more thought into this threshold
+  # give or take 5% - lower gives me not a lot to work with and still probably represents forest cover gradient well; 10% was prob too big
   spEco.list[[i]] <- sp2019 %>% filter(Ecoregion_L1Code == tempEco) %>% filter(Forest.cover <= (tempSite$firstcover+0.05)) %>% filter(Forest.cover >= (tempSite$lastcover-0.05))
   
 }
@@ -97,9 +97,7 @@ spEco.list_gain <- vector("list")
 for(i in 1:2) {
   tempSite <- temporal_gain[i,]
   tempEco <- tempSite$Ecoregion_L1Code
-  
-  # Select for sites that fall in the same ecoregion and fall in the same forest cover gradient established by the temporal site's first and last year forest cover
-  # give or take 10% for now because candidate turnout was so low ... will need to put more thought into this threshold
+ 
   spEco.list_gain[[i]] <- sp2019 %>% filter(Ecoregion_L1Code == tempEco) %>% filter(Forest.cover >= (tempSite$firstcover-0.05)) %>% filter(Forest.cover <= (tempSite$lastcover+0.05))
   
 }
