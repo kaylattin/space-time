@@ -1,109 +1,117 @@
 
 ## mock rstan code as if I could ever figure it out to run it properly
-library(rstan)
-setwd("/Users/kayla/Documents/space-time")
-dat <- read.csv("wholedataset_speciesover40_NOV18.csv")
+setwd("/Users/kayla/Documents/space-time/data prep")
+library(tidyverse)
+d <- read.csv("whole_dataset_over40_5p.csv")
+d_obs <- read.csv("observer_dataset_over40.csv")
 
-dat_obs <- read.csv("observerdataset_NOV23.csv")
-
-obsID <- select(dat_obs, c(ObsN, Obs_ID))
+obsID <- select(d_obs, c(ObsN, Obs_ID))
 obsID <- obsID %>% distinct(ObsN, Obs_ID)
-dat <- merge(dat, obsID, by = "ObsN", all.x = TRUE)
+d <- merge(d, obsID, by = "ObsN", all.x = TRUE)
 
-### set up main analysis data
-space.time <- dat$space.time # categorical
-forest <- dat$Forest.cover # continuous 
-count <- dat$Count # count
-observer <- dat$Obs_ID # categorical
-sp.region_f <- dat$SpeciesRegion # categorical
+d_obs <- d_obs[!is.na(d_obs$Eco_ID),]
 
-### set up observer model data
-route <- dat_obs$Route_ID # categorical - index variable
-species_obs_f <- dat_obs$SpeciesCode # categorical - factor
-obs <- dat_obs$Obs_ID # categorical - index variable
-count_obs <- dat_obs$Count 
-ecozone <- dat_obs$Eco_ID # categorical - index variable
+### set up main analysis da
+space.time <- d$space.time # categorical
+p_forest <- d$Forest.cover # continuous 
+count <- d$Count # count
+observer <- d$Obs_ID # categorical
+sp.region_f <- d$SpeciesRegion # categorical
 
-
-### convert to percentage
-p_forest <- 0.01*forest
+### set up observer model da
+route <- d_obs$Route_ID # categorical - index variable
+species_obs_f <- d_obs$BBL # categorical - factor
+obs <- d_obs$Obs_ID # categorical - index variable
+count_obs <- d_obs$Count 
+ecoreg_obs <- d_obs$Eco_ID # categorical - index variable
 
 # convert species factor to integer
 sp.region <- as.integer(as.factor(sp.region_f))
 species_obs <- as.integer(as.factor(species_obs_f))
 
 ### set up n's
-ncounts <- nrow(dat)
+ncounts <- nrow(d)
 nsp.regions <- length(unique(sp.region)) # number of species
 nobservers <- length(unique(observer)) # number of observers
-ncounts_obs <- nrow(dat_obs) # number of observer counts
+ncounts_obs <- nrow(d_obs) # number of observer counts
 nobs <- length(unique(obs)) # number of observers
 nroutes_obs <- length(unique(route)) # number of routes
-nspecies_obs <- length(unique(species_obs)) # number of species in observer dataset
-necozones_obs <- length(unique(ecozone)) # number of ecozones
+nspecies_obs <- length(unique(species_obs)) # number of species in observer daset
+necoregs_obs <- length(unique(ecoreg_obs)) # number of ecoregs
 
 
 ### VERY SIMPLIFIED TEST MODEL WITHOUT OBSERVER SUBMODEL AND BETA_MOD
 
-dat_slim <- list(
-  ncounts = nrow(dat),
-  nspregions = length(unique(sp.region)),
-  nspacetime = length(unique(dat$space.time)),
-  nobs = ,
-  count = dat$Count,
-  spacetime = dat$space.time,
+d_slim <- list(
+  ncounts = nrow(d),
+  nspregions = nsp.regions,
+  nspacetime = 2,
+  nobs = nobservers,
+  count = count,
+  spacetime = space.time,
   spregion = sp.region,
-  pforest = dat$Forest.cover
-  obs = ,
+  pforest = p_forest,
+  obs = observer,
   
   
-  ncounts_obs =  ,
-  nspecies_obs = ,
-  nroutes_obs = ,
-  necozone_obs =  ,
-  nobs_obs = ,
-  count_obs = ,
-  species_obs = ,
-  route_obs = ,
-  ecozone_obs = ,
-  obs_obs = ,
+  ncounts_obs =  ncounts_obs,
+  nspecies_obs = nspecies_obs,
+  nroutes_obs = nroutes_obs,
+  necoreg_obs = necoregs_obs,
+  nobs_obs = nobs,
+  count_obs = count_obs,
+  species_obs = species_obs,
+  route_obs = route,
+  ecoreg_obs = ecoreg_obs,
+  obs_obs = obs
   
 )
 
 code <- " data {
-  int<lower=0> ncounts;
-  int<lower=0> nspregions;
-  int<lower=0> nspacetime;
-  int<lower=0> nobs;
-  vector[ncounts] pforest;
-    
-  int<lower=0> ncounts_obs;
-  int<lower=0> nspecies_obs;
-  int<lower=0> nroutes_obs;
-  int<lower=0> necozone_obs;
-  int<lower=0> nobs_obs;
 
+  // Main model.
+  int<lower=1> ncounts;   // Number of observations
+  int<lower=1> nspregions;  // Number of grouping species-regions
+  int<lower=1> nspacetime;  // Number of grouping space or time
+  int<lower=1> nobs;        // Number of unique observers
+  
+  
+  // Observed data
   int count[ncounts];
   int spacetime[ncounts];
   int spregion[ncounts];
-  int obs[nobs];
+  int obs[ncounts];
+  real pforest[ncounts];
+
   
+  
+  /// Observer submodel.
+  
+  int<lower=1> ncounts_obs;
+  int<lower=1> nspecies_obs;
+  int<lower=1> nroutes_obs;
+  int<lower=1> necoreg_obs;
+  int<lower=1> nobs_obs;
+
+  // Observed data
   int count_obs[ncounts_obs];
-  int species_obs[nspecies_obs];
-  int route_obs[nroutes_obs];
-  int ecozone_obs[necozone_obs];
-  int obs_obs[nobs_obs];
+  int species_obs[ncounts_obs];
+  int route_obs[ncounts_obs];
+  int ecoreg_obs[ncounts_obs];
+  int obs_obs[ncounts_obs];
 }
 parameters {
-  vector[nspregions] alpha;
-  vector[ncounts] noise;
-  matrix[nspregions, nspacetime] beta_space_time;
-  real<lower=0> sdnoise;
+  // Main model.
+  vector[nspregions] alpha;   // Vector of species-regions intercepts
+  matrix[nspregions, nspacetime] beta; // Matrix of coefficients
+  matrix[nspregions, nspacetime] beta_mod;
+  vector[ncounts] noise;      // Noise for over-dispersion
+  real<lower=0> sdnoise;     // Variance of over-dispersion
   
   vector[ncounts_obs] noise_obs;
   vector[nspecies_obs] species_effect;
-  vector[nroute_obs] route_effect;
-  vector[necozone_obs] ecozone_effect;
+  vector[nroutes_obs] route_effect;
+  vector[necoreg_obs] ecoreg_effect;
   vector[nobs] obs_offset;
   
   
@@ -116,44 +124,39 @@ model {
   noise_obs ~ normal(0, sdnoise);
   species_effect ~ normal(0, 0.1);
   route_effect ~ normal(0, 0.1);
-  ecozone_effect ~ normal(0, 0.1);
+  ecoreg_effect ~ normal(0, 0.1);
   obs_offset ~ normal(0, 0.1);
   
   noise ~ normal(0, sdnoise);
   alpha[spregion] ~ normal(0, 0.1);
-  beta_space_time[,1] ~ normal(0, 0.1);
-  beta_space_time[,2] ~ normal(0, 0.1);
-  
+  beta[,1] ~ normal(0, 0.1); // Time beta
+  beta[,2] ~ normal(0, 0.1); // Space beta
+
   
   for(k in 1:ncounts_obs) {
-    lambda_obs[i] = species_effect[species_obs[k]] + route_effect[route_obs[k]] + ecozone_effect[ecozone_obs[k]] + obs_offset[obs_obs[k]] + noise_obs[k];
+    lambda_obs[k] = species_effect[species_obs[k]] + route_effect[route_obs[k]] + ecoreg_effect[ecoreg_obs[k]] + obs_offset[obs_obs[k]] + noise_obs[k];
     
-    count_obs[i] ~ poisson_log(lambda_obs[k]);
+    count_obs[k] ~ poisson_log(lambda_obs[k]);
   }
   
   
   for(i in 1:ncounts) {
-    lambda[i] = alpha[spregion[i]] + beta_space_time[spregion[i],spacetime[i]] * pforest[i] + obs_offset[obs[i]] + noise[i];
+    lambda[i] = alpha[spregion[i]] + beta[spregion[i], spacetime[i]] * pforest[i] + obs_offset[obs[i]] + noise[i];
     
     count[i] ~ poisson_log(lambda[i]); // poisson with log link
   }
   
 }
 generated quantities{
-<<<<<<< HEAD
   vector[nspregions] diff;
 
-=======
-  vector[ncounts] diff;
->>>>>>> e57552fe1f3bf2c5a5287f4b1d84aee1700ebf8f
-  diff = beta_space_time[,2] - beta_space_time[,1];
+  diff = beta[,2] - beta[,1];
 }
 
 "
 
 model <- stan(model_code = code,
-              dat = dat_slim,
+              data = d_slim,
               chains = 3,
               cores = 3,
-              iter = 4000,
-              max_treedepth = 15)
+              iter = 4000)
