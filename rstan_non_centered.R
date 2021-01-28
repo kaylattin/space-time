@@ -2,6 +2,7 @@
 setwd("/Users/kayla/Documents/space-time/data prep")
 library(tidyverse)
 library(rstan)
+library(bayesplot)
 rm(list = ls())
 gc()
 
@@ -224,10 +225,11 @@ model <- stan(model_code = code,
               control = list(adapt_delta = 0.99,
                              max_treedepth = 15))
 
-save(model, file = "non_centered_test.RData")
+save(model, file = "non_centered_test_2.RData")
 # no divergent tranasitions with non-centered parameterization yay
 
-
+y_rep <- as.matrix(model, pars = "y_rep")
+ppc_dens_overlay(y = d$Count, yrep = y_rep)
 
 
 
