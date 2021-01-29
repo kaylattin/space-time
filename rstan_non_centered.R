@@ -201,7 +201,7 @@ generated quantities{
   // Y_rep for posterior predictive check
   vector[ncounts] y_rep;
   for(i in 1:ncounts){
-    y_rep[ncounts] = poisson_log_rng(a[spreg[i]] + b[spreg[i], st[i]] * pforest[i] + obs_offset[obs[i]] + noise[i]);
+    y_rep[i] = poisson_log_rng(a[spreg[i]] + b[spreg[i], st[i]] * pforest[i] + obs_offset[obs[i]] + noise[i]);
   
   }
 
