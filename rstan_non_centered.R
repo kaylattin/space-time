@@ -1,4 +1,4 @@
-## mock rstan code as if I could ever figure it out to run it properly
+## load up stuff
 setwd("/Users/kayla/Documents/space-time/data prep")
 library(tidyverse)
 library(rstan)
@@ -16,7 +16,7 @@ d <- merge(d, obsID, by = "ObsN", all.x = TRUE)
 d_obs <- d_obs[!is.na(d_obs$Eco_ID),]
 
 
-### cut down to test
+### cut down dataset to test (first 4 comparison regions)
 
 d <- d %>% filter(Region == c(1,2,3,4))
 d_obs <- d_obs %>% filter(ObsN %in% d$ObsN)
