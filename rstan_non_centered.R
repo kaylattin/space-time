@@ -9,10 +9,9 @@ gc()
 d <- read.csv("whole_dataset_over40_5p.csv")
 d_obs <- read.csv("observer_dataset_over40.csv")
 
-obsID <- select(d_obs, c(ObsN, Obs_ID))
-obsID <- obsID %>% distinct(ObsN, Obs_ID)
-d <- merge(d, obsID, by = "ObsN", all.x = TRUE)
 
+# last-minute removal of ecoregion's with NAs for observer dataset
+# doesn't change the unique # of observers
 d_obs <- d_obs[!is.na(d_obs$Eco_ID),]
 
 
