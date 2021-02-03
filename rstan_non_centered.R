@@ -194,7 +194,7 @@ noise_obs ~ normal(0, sigma_n_obs);             // Prior for over-dispersion ter
 generated quantities{
   vector[nspreg] diff;
   vector[ncounts] y_rep;
-  matrix[4,4] Rho;
+  matrix[2,2] Rho;
   
     
   // Compute ordinary correlation matrices from Cholesky factors
