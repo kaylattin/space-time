@@ -97,6 +97,7 @@ parameters {
 // MAIN MODEL
 
   vector[nspreg] a;                             // Intercept mean varying by species-regions
+  real<lower=0> sigma_a;
  
   vector[ncounts] noise;                        // Over-dispersion noise parameter
   
@@ -142,9 +143,9 @@ model {
 
 // priors
 
-sigma_n_obs ~ cauchy(0,4);                      // prior for variances
-sigma_e_obs ~ cauchy(0,4); 
-sigma_r_obs ~ cauchy(0,4);
+sigma_n_obs ~ student_t(4, 0, 1);                      // prior for variances
+sigma_e_obs ~ student_t(4, 0, 1); 
+sigma_r_obs ~ student_t(4, 0, 1);
 
 species_effect ~ normal(0, 0.01);               // Prior for species effect - fixed
 route_effect ~ normal(0, sigma_r_obs);                 // Prior for bbs route effect - random
@@ -158,16 +159,16 @@ noise_obs ~ normal(0, sigma_n_obs);             // Prior for over-dispersion ter
 
 // priors
 
- sigma_n ~ cauchy(0, 4);                         // Prior for scale parameter for noise
+ sigma_n ~ student_t(4, 0, 1);                         // Prior for scale parameter for noise
  noise ~ normal(0, sigma_n);                     // Prior for noise
 
 
  to_vector(z_b) ~ normal(0, 1);                   // Prior for slope z-score
  L_Rho ~ lkj_corr_cholesky(2);                   // Prior for Cholesky correlation matrix
- sigma_b ~ cauchy(0, 4);                         // Prior for slope variance
+ sigma_b ~ student_t(4, 0, 1);                         // Prior for slope variance
  
-
- a ~ normal(0, 0.01);                                                   // Prior for intercept - fixed effect
+ sigma_a ~ student_t(4, 0, 1);
+ a ~ normal(0, sigma_a);                        // Prior for intercept - fixed effect
   
   
     // model
@@ -193,17 +194,27 @@ noise_obs ~ normal(0, sigma_n_obs);             // Prior for over-dispersion ter
 
 generated quantities{
   vector[nspreg] diff;
+  vector[ncounts] y_rep;
+  matrix[4,4] Rho;
   
+    
+  // Compute ordinary correlation matrices from Cholesky factors
+  Rho = multiply_lower_tri_self_transpose(L_Rho);
+  
+  
+  
+  
+  // Find difference between spatial & temporal slopes
   for(i in 1:nspreg){
-    diff[i] = b[spreg[i],st[2]] - b[spreg[i],st[1]];    // Find difference
+    diff[i] = b[spreg[i],st[2]] - b[spreg[i],st[1]];    
   
   }
+
+  
   
   // Y_rep for posterior predictive check
-  vector[ncounts] y_rep;
   for(i in 1:ncounts){
-    y_rep[ncounts] = poisson_log_rng(a[spreg[i]] + b[spreg[i], st[i]] * pforest[i] + obs_offset[obs[i]] + noise[i]);
-  
+    y_rep[i] = poisson_log_rng(a[spreg[i]] + b[spreg[i], st[i]] * pforest[i] + obs_offset[obs[i]] + noise[i]);
   }
 
 }
@@ -225,20 +236,21 @@ model <- stan(model_code = code,
               control = list(adapt_delta = 0.99,
                              max_treedepth = 15))
 
-save(model, file = "non_centered_test_2.RData")
+save(model, file = "non_centered_test_3.RData")
 # no divergent tranasitions with non-centered parameterization yay
 
 y_rep <- as.matrix(model, pars = "y_rep")
 ppc_dens_overlay(y = d$Count, yrep = y_rep)
 
-
-
+load("non_centered_test_3.RData")
+fit_summary <- summary(model)
+s <- print(fit_summary$summary, pars = "b")
 
 # prior predictive check -------------------------------------------------------------------
 
 dat_pp <- list(
   ncounts = nrow(d),
-  pforest = (( d$Forest.cover - mean(d$Forest.cover)) / sd(d$Forest.cover))
+  pforest = d$Forest.cover - mean(d$Forest.cover)
 )
 
 
@@ -252,9 +264,9 @@ pp <- " data {
 }
 
 generated quantities{
-  real sigma_a = cauchy_rng(4, 0, 1);
-  real a = normal_rng(0, sigma_a);
-  real b = normal_rng(0, 0.01);
+  real<lower=0> sigma_b;
+  real a = normal_rng(0, 0.01);
+  real b = normal_rng(0, sigma_b);
   int y_sim[ncounts];
   
   for(i in 1:ncounts) y_sim[i] = poisson_log_rng(a + b * pforest[i]);
