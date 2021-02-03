@@ -1,4 +1,4 @@
-## mock rstan code as if I could ever figure it out to run it properly
+## load up stuff
 setwd("/Users/kayla/Documents/space-time/data prep")
 library(tidyverse)
 library(rstan)
@@ -9,14 +9,13 @@ gc()
 d <- read.csv("whole_dataset_over40_5p.csv")
 d_obs <- read.csv("observer_dataset_over40.csv")
 
-obsID <- select(d_obs, c(ObsN, Obs_ID))
-obsID <- obsID %>% distinct(ObsN, Obs_ID)
-d <- merge(d, obsID, by = "ObsN", all.x = TRUE)
 
+# last-minute removal of ecoregion's with NAs for observer dataset
+# doesn't change the unique # of observers
 d_obs <- d_obs[!is.na(d_obs$Eco_ID),]
 
 
-### cut down to test
+### cut down dataset to test (first 4 comparison regions)
 
 d <- d %>% filter(Region == c(1,2,3,4))
 d_obs <- d_obs %>% filter(ObsN %in% d$ObsN)
