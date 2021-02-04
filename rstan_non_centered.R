@@ -17,8 +17,8 @@ d_obs <- d_obs[!is.na(d_obs$Eco_ID),]
 
 ### cut down dataset to test (first 4 comparison regions)
 
-d <- d %>% filter(Region == c(1,2,3,4))
-d_obs <- d_obs %>% filter(ObsN %in% d$ObsN)
+#d <- d %>% filter(Region == c(1,2,3,4))
+#d_obs <- d_obs %>% filter(ObsN %in% d$ObsN)
 
 ### my attempt at adapting this model to RStan --------------------------------------------------------
 
@@ -194,7 +194,7 @@ noise_obs ~ normal(0, sigma_n_obs);             // Prior for over-dispersion ter
 generated quantities{
   vector[nspreg] diff;
   vector[ncounts] y_rep;
-  matrix[4,4] Rho;
+  matrix[2,2] Rho;
   
     
   // Compute ordinary correlation matrices from Cholesky factors
@@ -229,19 +229,19 @@ generated quantities{
 
 model <- stan(model_code = code,
               data = d_slim,
-              chains = 1,
-              cores = 3,
+              chains = 2,
+              cores = 2,
               iter = 500,
               control = list(adapt_delta = 0.99,
                              max_treedepth = 15))
 
-save(model, file = "non_centered_test_3.RData")
+save(model, file = "non_centered_whole.RData")
 # no divergent tranasitions with non-centered parameterization yay
 
 y_rep <- as.matrix(model, pars = "y_rep")
 ppc_dens_overlay(y = d$Count, yrep = y_rep)
 
-load("non_centered_test_3.RData")
+
 fit_summary <- summary(model)
 s <- print(fit_summary$summary, pars = "b")
 
