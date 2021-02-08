@@ -24,15 +24,17 @@ d_obs <- d_obs[!is.na(d_obs$Eco_ID),]
 
 d_slim <- list(
   ncounts = nrow(d),
-  nspreg = length(unique(d$SpeciesRegion)),
+  nspecies = length(unique(d$BBL)),
+  nreg = length(unique(d$ref)),
   nst = 2,
   nobs = length(unique(d$ObsN)),
   
   count = d$Count,
   st = d$space.time,
-  spreg = as.integer(as.factor(d$SpeciesRegion)), 
-  obs = as.integer(as.factor(d$ObsN)),
+  species = as.integer(as.factor(d$BBL)), 
+  reg = as.integer(as.factor(d$ref)),
   pforest = (d$Forest.cover - mean(d$Forest.cover)), # centered
+  obs = as.integer(as.factor(d$ObsN)),
   
   
   count_obs = d_obs$Count,
@@ -54,19 +56,22 @@ d_slim <- list(
 code <- " data {
 
 
+
 // MAIN MODEL
 
   // groups and counts
   int<lower=1> ncounts;                         // Number of observations
-  int<lower=1> nspreg;                          // Number of grouping species-regions
+  int<lower=1> nspecies;                        // Number of species
+  int<lower=1> nreg;                            // Number of regions
   int<lower=1> nst;                             // Number of grouping space or time
-  int<lower=1> nobs;                            // Number of unique observers
+  int<lower=1> nobs;
   
   // observed data
   int count[ncounts];                           // Species abundance count observations
   int st[ncounts];                              // Space or time
-  int spreg[ncounts];                           // Species-region combo
-  int obs[ncounts];                             // bbs observer
+  int species[ncounts];                         // Species 
+  int reg[ncounts];                             // Regions
+  int obs[ncounts];
   real pforest[ncounts];                        // Percent forest cover
   
 
@@ -95,14 +100,18 @@ parameters {
 
 // MAIN MODEL
 
-  vector[nspreg] a;                             // Intercept mean varying by species-regions
+  matrix[nspecies, nreg] a;                     // Intercept mean varying by species-regions
+  real mu_a;
   real<lower=0> sigma_a;
  
   vector[ncounts] noise;                        // Over-dispersion noise parameter
   
   
-  matrix[nst, nspreg] z_b;                      // Matrix of z-scores for slope coefficient b
-  cholesky_factor_corr[nst] L_Rho;              // Cholesky correlation matrix for varying effects
+  matrix[nreg, nst] z_b[nspecies];              // an nspecies vector of matrix nreg x nst (40 x 2) but not every species will have a 40 x 2 matrix
+                                                // because not all species are present in all 40 comparison regions - how to work around this?
+                                                // and how to do a covariance matrix for a vector of matrices? a vector of covariance matrices?
+
+  cholesky_factor_corr[nst] L_Rho;            // Cholesky correlation matrix for varying effects
   
   real<lower=0> sigma_n;                        // Variance for noise 
   vector<lower=0>[nst] sigma_b;                 // Variance for slope
@@ -124,10 +133,10 @@ parameters {
 }
 
 transformed parameters{
-  matrix[nspreg, nst] b;                        // Slope mean measuring forest cover effect, varying by species-regions combos nested inside space-time
+  matrix[nreg, nst] b[nspecies];              // Slope mean measuring forest cover effect, varying by region and by space-time identifier
   
-
-  b = (diag_pre_multiply(sigma_b, L_Rho) * z_b)';
+  for(n in 1:nspecies)                        // an nspecies vector of covariance matrices???
+  b[n] = (diag_pre_multiply(sigma_b, L_Rho) * z_b[reg[n], st[n])';
 }
 
 
@@ -139,60 +148,47 @@ model {
   
 // OBSERVER SUB-MODEL
 
+sigma_n_obs ~ inv_gamma(0.001, 0.001);           // prior for variances
+sigma_e_obs ~ inv_gamma(0.001, 0.001); 
+sigma_r_obs ~ inv_gamma(0.001, 0.001);
+ 
+species_effect ~ normal(0, 0.01);                // Prior for species effect - fixed
+route_effect ~ normal(0, sigma_r_obs);           // Prior for bbs route effect - random
+ecoreg_effect ~ normal(0, sigma_e_obs);          // Prior for ecoregion effect - random
+obs_offset ~ normal(0, 0.01);                    // Prior for observer offset - fixed
+noise_obs ~ normal(0, sigma_n_obs);              // Prior for over-dispersion term
+ 
+   // likelihood
+    for(k in 1:ncounts_obs) 
+    lambda_obs[k] = species_effect[species_obs[k]] + route_effect[route_obs[k]] + ecoreg_effect[ecoreg_obs[k]] + obs_offset[obs_obs[k]] + noise_obs[k];
 
-// priors
-
-sigma_n_obs ~ student_t(4, 0, 1);                      // prior for variances
-sigma_e_obs ~ student_t(4, 0, 1); 
-sigma_r_obs ~ student_t(4, 0, 1);
-
-species_effect ~ normal(0, 0.01);               // Prior for species effect - fixed
-route_effect ~ normal(0, sigma_r_obs);                 // Prior for bbs route effect - random
-ecoreg_effect ~ normal(0, sigma_e_obs);                // Prior for ecoregion effect - random
-obs_offset ~ normal(0, 0.01);                   // Prior for observer offset - fixed
-noise_obs ~ normal(0, sigma_n_obs);             // Prior for over-dispersion term
+count_obs ~ poisson_log(lambda_obs);
 
 
 
 // MAIN MODEL 
 
-// priors
-
- sigma_n ~ student_t(4, 0, 1);                         // Prior for scale parameter for noise
+ sigma_n ~ student_t(4, 0, 1);                   // Prior for scale parameter for noise
  noise ~ normal(0, sigma_n);                     // Prior for noise
 
 
  to_vector(z_b) ~ normal(0, 1);                   // Prior for slope z-score
- L_Rho ~ lkj_corr_cholesky(2);                   // Prior for Cholesky correlation matrix
- sigma_b ~ student_t(4, 0, 1);                         // Prior for slope variance
+ //L_Rho ~ lkj_corr_cholesky(2);                  // Prior for Cholesky correlation matrix
+ sigma_b ~ student_t(4, 0, 1);                    // Prior for slope variance
  
  sigma_a ~ student_t(4, 0, 1);
- a ~ normal(0, sigma_a);                        // Prior for intercept - fixed effect
+ mu_a ~ normal(0, 0.01)
+ a ~ normal(mu_a, sigma_a);                       // Prior for intercept
   
-  
-    // model
-    for(k in 1:ncounts_obs) {
-    lambda_obs[k] = species_effect[species_obs[k]] + route_effect[route_obs[k]] + ecoreg_effect[ecoreg_obs[k]] + obs_offset[obs_obs[k]] + noise_obs[k];
-   
-    count_obs[k] ~ poisson_log(lambda_obs[k]);
-  }
- 
-  
-  // model
-  for(i in 1:ncounts) {
-    lambda[i] = a[spreg[i]] + b[spreg[i], st[i]] * pforest[i] + obs_offset[obs[i]] + noise[i];
-    
-    
-    count[i] ~ poisson_log(lambda[i]);            // poisson with log link
+  // likelihood
+    for(i in 1:ncounts) 
+    lambda[i] = a[species[i], reg[i]] + b[reg[i], st[i]] * pforest[i] + obs_offset[obs[i]] + noise[i];
 
-  }
-  
-    
+count ~ poisson_log(lambda);          
    
 }
 
 generated quantities{
-  vector[nspreg] diff;
   vector[ncounts] y_rep;
   matrix[2,2] Rho;
   
@@ -202,47 +198,46 @@ generated quantities{
   
   
   
-  
-  // Find difference between spatial & temporal slopes
-  for(i in 1:nspreg){
-    diff[i] = b[spreg[i],st[2]] - b[spreg[i],st[1]];    
-  
-  }
-
-  
-  
   // Y_rep for posterior predictive check
-  for(i in 1:ncounts){
-    y_rep[i] = poisson_log_rng(a[spreg[i]] + b[spreg[i], st[i]] * pforest[i] + obs_offset[obs[i]] + noise[i]);
-  }
+  //for(i in 1:ncounts){
+  //  y_rep[i] = poisson_log_rng(a[species[i], reg[i]] + b[reg[i], st[i]] * pforest[i] + obs_offset[obs[i]] + noise[i]);
+  //}
 
 }
 
 
 
 "
-
+# possible reasons this keeps crashing my session:
+# generated quantities is too big (too much RAM) - do a PPC on a subset of the data and then omit for whole dataset?
+# need to add gc()?
+# didn't compile and sample the model properly - changed below (haven't tried yet)
 
 # 2000 divergent transitions and low ESS
 # might need to consider non-centered parameterization if adapt_delta and more iterations doesn't help
 
+# compile the model?
+model <- stan_model(model_name = "thesis_model",
+                    model_code = code)
 
-model <- stan(model_code = code,
-              data = d_slim,
-              chains = 2,
-              cores = 2,
-              iter = 500,
-              control = list(adapt_delta = 0.99,
-                             max_treedepth = 15))
+gc()
+# fit the model ------------------------------
+stan.fit <- sampling(object = model,
+                     data = d_slim,
+                     iter = 2000,
+                     chains = 3,
+                     cores = 3,
+                     init = 'random',
+                     show_messages = TRUE,
+                     control = list(max_treedepth = 15,
+                                    adapt_delta = 0.99))
 
-save(model, file = "non_centered_whole.RData")
-# no divergent tranasitions with non-centered parameterization yay
 
-y_rep <- as.matrix(model, pars = "y_rep")
+y_rep <- as.matrix(stan.fit, pars = "y_rep")
 ppc_dens_overlay(y = d$Count, yrep = y_rep)
 
 
-fit_summary <- summary(model)
+fit_summary <- summary(stan.fit)
 s <- print(fit_summary$summary, pars = "b")
 
 # prior predictive check -------------------------------------------------------------------
