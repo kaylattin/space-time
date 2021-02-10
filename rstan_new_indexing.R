@@ -287,13 +287,7 @@ generated quantities{
 
 
 "
-# possible reasons this keeps crashing my session:
-# generated quantities is too big (too much RAM) - do a PPC on a subset of the data and then omit for whole dataset?
-# need to add gc()?
-# didn't compile and sample the model properly - changed below (haven't tried yet)
-
-# 2000 divergent transitions and low ESS
-# might need to consider non-centered parameterization if adapt_delta and more iterations doesn't help
+# observer submodel increases runtime by a huge amount - maybe leave out noise_ob and other parameters to quicken the sampling time
 
 # compile the model?
 model <- stan_model(model_name = "thesis_model",
