@@ -84,7 +84,7 @@ code <- " data {
   
   
   // data for group-level effects of species
-  int<lower=1> N_species;                       // Number of species levels (407)
+  int<lower=1> N_species;                       // Number of species levels (57)
   int<lower=1> M_species;                       // Number of coefficients per level (2) - intercept & slope
   int<lower=1> J_species[N];                    // grouping indicator per observation
   // species group-level predictor values -- these were in the brm code but I haven't figured out what they mean
