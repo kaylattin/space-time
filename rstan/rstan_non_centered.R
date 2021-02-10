@@ -57,28 +57,45 @@ code <- " data {
 
 
 
-// MAIN MODEL
+// MAIN MODEL -------------
 
-  // groups and counts
-  int<lower=1> ncounts;                         // Number of observations
-  int<lower=1> nspecies;                        // Number of species
-  int<lower=1> nreg;                            // Number of regions
-  int<lower=1> nst;                             // Number of grouping space or time
-  int<lower=1> nobs;
+  int<lower=1> N;                               // Number of observations
+  int count[N];                                 // Response variable - count observations
+  real pforest[N];                              // Predictor - percent forest cover
   
-  // observed data
-  int count[ncounts];                           // Species abundance count observations
-  int st[ncounts];                              // Space or time
-  int species[ncounts];                         // Species 
-  int reg[ncounts];                             // Regions
-  int obs[ncounts];
-  real pforest[ncounts];                        // Percent forest cover
   
+  // data for group-level effects of species
+  int<lower=1> N_species;                       // Number of species levels (407)
+  int<lower=1> M_species;                       // Number of coefficients per level (2) - intercept & slope
+  int<lower=1> J_species[N];                    // grouping indicator per observation
+  // species group-level predictor values
+  vector[N] Z_species_a;
+  vector[N] Z_species_b;
+  
+  
+  // data for group-level effects of region
+  int<lower=1> N_reg;                            // Number of region levels (40)
+  int<lower=1> M_reg;                            // Number of coefficients per level (2) - intercept & slope
+  int<lower=1> J_reg[N];                         // grouping indicator per observation
+  // region group-level predictor values
+  vector[N] Z_reg_a;
+  vector[N] Z_reg_b;
+  
+  // data for group-level effects in space and time
+  int<lower=1> N_st;                            // Number of space-time levels (2)
+  int<lower=1> M_st;                            // Number of coefficients per level (1) - slope only
+  int<lower=1> J_st[N];                         // grouping indicator per observation
+  // space-time group-level predictor values
+  vector[N] Z_reg_b;
+  
+  // data for observer effects
+  int<lower=1> N_obs;                           // Number of observers
+  int<lower=1> J_obs[N];
 
 
 
 
-// OBSERVER SUB-MODEL
+// OBSERVER SUB-MODEL --------------------
 
   // groups and counts
   int<lower=1> ncounts_obs;                     // Number of observations in observer dataset
@@ -135,8 +152,8 @@ parameters {
 transformed parameters{
   matrix[nreg, nst] b[nspecies];              // Slope mean measuring forest cover effect, varying by region and by space-time identifier
   
-  for(n in 1:nspecies)                        // an nspecies vector of covariance matrices???
-  b[n] = (diag_pre_multiply(sigma_b, L_Rho) * z_b[reg[n], st[n])';
+                                              // an nspecies vector of covariance matrices???
+  b = (diag_pre_multiply(sigma_b, L_Rho) * z_b)';
 }
 
 
@@ -148,9 +165,9 @@ model {
   
 // OBSERVER SUB-MODEL
 
-sigma_n_obs ~ inv_gamma(0.001, 0.001);           // prior for variances
-sigma_e_obs ~ inv_gamma(0.001, 0.001); 
-sigma_r_obs ~ inv_gamma(0.001, 0.001);
+sigma_n_obs ~ student_t(4, 0, 1);           // prior for variances
+sigma_e_obs ~ student_t(4, 0, 1); 
+sigma_r_obs ~ student_t(4, 0, 1);
  
 species_effect ~ normal(0, 0.01);                // Prior for species effect - fixed
 route_effect ~ normal(0, sigma_r_obs);           // Prior for bbs route effect - random
@@ -159,8 +176,9 @@ obs_offset ~ normal(0, 0.01);                    // Prior for observer offset - 
 noise_obs ~ normal(0, sigma_n_obs);              // Prior for over-dispersion term
  
    // likelihood
-    for(k in 1:ncounts_obs) 
+    for(k in 1:ncounts_obs) {
     lambda_obs[k] = species_effect[species_obs[k]] + route_effect[route_obs[k]] + ecoreg_effect[ecoreg_obs[k]] + obs_offset[obs_obs[k]] + noise_obs[k];
+    }
 
 count_obs ~ poisson_log(lambda_obs);
 
@@ -181,9 +199,10 @@ count_obs ~ poisson_log(lambda_obs);
  a ~ normal(mu_a, sigma_a);                       // Prior for intercept
   
   // likelihood
-    for(i in 1:ncounts) 
+    for(i in 1:ncounts) {
     lambda[i] = a[species[i], reg[i]] + b[reg[i], st[i]] * pforest[i] + obs_offset[obs[i]] + noise[i];
-
+    }
+    
 count ~ poisson_log(lambda);          
    
 }

@@ -4,6 +4,8 @@ setwd("/Users/kayla/Documents/space-time/data prep")
 library(tidyverse)
 library(rstan)
 rm(list = ls())
+gc()
+
 d <- read.csv("whole_dataset_over40_5p.csv")
 d_obs <- read.csv("observer_dataset_over40.csv")
 
@@ -13,31 +15,38 @@ d <- merge(d, obsID, by = "ObsN", all.x = TRUE)
 
 d_obs <- d_obs[!is.na(d_obs$Eco_ID),]
 
+
+### cut down to test
+
+d <- d %>% filter(Region == c(1,2,3,4))
+d_obs <- d_obs %>% filter(ObsN %in% d$ObsN)
+
 ### my attempt at adapting this model to RStan --------------------------------------------------------
 
 d_slim <- list(
   ncounts = nrow(d),
   nspreg = length(unique(d$SpeciesRegion)),
   nst = 2,
+  nobs = length(unique(d$ObsN)),
   
-  count = ((d$Count - mean(d$Count)) / sd(d$Count)),
+  count = d$Count,
   st = d$space.time,
-  spreg = as.integer(as.factor(d$SpeciesRegion)), # standardized
-  obs = d$Obs_ID,
-  pforest = ((d$Forest.cover - mean(d$Forest.cover)) / sd(d$Forest.cover)), # standardized
+  spreg = as.integer(as.factor(d$SpeciesRegion)), 
+  obs = as.integer(as.factor(d$ObsN)),
+  pforest = (d$Forest.cover - mean(d$Forest.cover)), # centered
   
   
-  count_obs = ((d_obs$Count - mean(d_obs$Count)) / sd(d_obs$Count)), # standardized
+  count_obs = d_obs$Count,
   species_obs = as.integer(as.factor(d_obs$BBL)),
-  route_obs = d_obs$Route_ID,
-  ecoreg_obs = d_obs$Eco_ID,
-  obs_obs = d_obs$Obs_ID,
+  route_obs = as.integer(as.factor(d_obs$RouteNumber)),
+  ecoreg_obs = as.integer(as.factor(d_obs$Ecoregion_L1Code)),
+    obs_obs = as.integer(as.factor(d_obs$ObsN)),
   
   ncounts_obs = nrow(d_obs),
   nspecies_obs = length(unique(d_obs$BBL)),
   nroutes_obs = length(unique(d_obs$Route_ID)),
   necoreg_obs = length(unique(d_obs$Eco_ID)), 
-  nobs_obs = length(unique(d_obs$Obs_ID)),
+  nobs_obs = length(unique(d_obs$ObsN))
 
   
 )
@@ -82,6 +91,7 @@ code <- " data {
   int obs_obs[ncounts_obs];                     // bbs observer
   
 }
+
 parameters {
 
 // MAIN MODEL
@@ -108,74 +118,84 @@ parameters {
   real<lower=0> sigma_n_obs;                    // Variance for noise
   real<lower=0> sigma_e_obs;                    // Variance for ecoregion
   real<lower=0> sigma_r_obs;                    // Variance for route
-}
-
-transformed parameters{
-
+  
 
 }
-
 
 
 model {
 
+  vector[ncounts_obs] lambda_obs;
+  vector[ncounts] lambda;
+  
+  
 // OBSERVER SUB-MODEL
 
 
 // priors
-vector[ncounts_obs] lambda_obs;
+
 
 species_effect ~ normal(0, 0.01);               // Prior for species effect - fixed
-route_effect ~ normal(0, sigma_r_obs);          // Prior for bbs route effect - random
-ecoreg_effect ~ normal(0, sigma_e_obs);         // Prior for ecoregion effect - random
+route_effect ~ normal(0, 0.01);                 // Prior for bbs route effect - random
+ecoreg_effect ~ normal(0, 0.01);                // Prior for ecoregion effect - random
 obs_offset ~ normal(0, 0.01);                   // Prior for observer offset - fixed
 noise_obs ~ normal(0, sigma_n_obs);             // Prior for over-dispersion term
-sigma_n_obs ~ half-t(4,0,1);                    // prior for variances
-sigma_e_obs ~ half-t(4,0,1);
-sigma_r_obs ~ half-t(4,0,1);
+sigma_n_obs ~ cauchy(0,4);                      // prior for variances
+sigma_e_obs ~ cauchy(0,4); 
+sigma_r_obs ~ cauchy(0,4);
 
-  // model
-    for(k in 1:ncounts_obs) {
-    lambda_obs[k] = species_effect[species_obs[k]] + route_effect[route_obs[k]] + ecoreg_effect[ecoreg_obs[k]] + obs_offset[obs_obs[k]] + noise_obs[k];
-    
-  }
-      count_obs[k] ~ poisson_log(lambda_obs[k]);
-  
+
 
 // MAIN MODEL 
 
 // priors
- vector[ncounts] lambda;
- noise ~ normal(0, sigma_n)                     // Prior for noise
- sigma_n ~ half-t(4, 0, 1);                     // Prior for scale parameter for noise
+
+ noise ~ normal(0, sigma_n);                     // Prior for noise
+ sigma_n ~ cauchy(0, 4);                         // Prior for scale parameter for noise
  
- Rho ~ lkj_corr(2);                             // Prior for correlation matrix
- sigma_b ~ half-t(4, 0, 1);                     // Prior for slope variance
+ Rho ~ lkj_corr(2);                              // Prior for correlation matrix
+ sigma_b ~ cauchy(0, 4);                         // Prior for slope variance
  
- b_mod ~ normal(0, sigma_bmod);                 // Prior for slope modifier
- sigma_bmod ~ half-t(4, 0, 1);                  // Prior for slope modifier variance
+ b_mod ~ normal(0, sigma_bmod);                  // Prior for slope modifier
+ sigma_bmod ~ cauchy(0, 4);                      // Prior for slope modifier variance
  
  
  b ~ multi_normal( rep_vector(0, 2) , quad_form_diag(Rho, sigma_b));    // Prior for slope - random effect covariance matrix
+ // Species-regions come from a statistical population within which the 2 features - space and time identifiers - are related through a covariance matrix specific to the population
  a ~ normal(0, 0.01);                                                   // Prior for intercept - fixed effect
+  
+  
+    // model
+    for(k in 1:ncounts_obs) {
+    lambda_obs[k] = species_effect[species_obs[k]] + route_effect[route_obs[k]] + ecoreg_effect[ecoreg_obs[k]] + obs_offset[obs_obs[k]] + noise_obs[k];
+   
+    count_obs[k] ~ poisson_log(lambda_obs[k]);
+  }
+ 
   
   // model
   for(i in 1:ncounts) {
     lambda[i] = a[spreg[i]] + b[spreg[i], st[i]] * pforest[i] + obs_offset[obs[i]] + noise[i];
     
+    
+    count[i] ~ poisson_log(lambda[i]);            // poisson with log link
 
   }
-      
-      
-      b[,2] = b[,1] + b_mod               // space slope as an additive function of time slope and modifier term
-      
-      
-      
-       ~ poisson_log(lambda);            // poisson with log link
-       
-       
+  
+    
+   
+}
+
+generated quantities{
+  vector[nspreg] diff;
+  
+  for(i in 1:nspreg){
+    diff[i] = b[spreg[i],st[2]] - b[spreg[i],st[1]];    // Find difference
+  
+  }
 
 }
+
 
 
 "
@@ -189,12 +209,12 @@ model <- stan(model_code = code,
               data = d_slim,
               chains = 1,
               cores = 3,
-              iter = 4000,
+              iter = 500,
               control = list(adapt_delta = 0.99,
                              max_treedepth = 15))
 
 
-
+ 
 # prior predictive check -------------------------------------------------------------------
 
 dat_pp <- list(
@@ -213,7 +233,7 @@ pp <- " data {
 }
 
 generated quantities{
-  real sigma_a = half_t_rng(4, 0, 1);
+  real sigma_a = cauchy_rng(4, 0, 1);
   real a = normal_rng(0, sigma_a);
   real b = normal_rng(0, 0.01);
   int y_sim[ncounts];
