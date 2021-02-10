@@ -218,7 +218,7 @@ model {
     
     
   for (n in 1:N){
-    mu[n] += r_species_a[J_species[n]] + r_reg_a[J_reg[n]] + r_species_b[J_species[n]] * pforest[n] + r_reg_b[J_reg[n]] * pforest[n] + r_st_b[J_st[n]] * pforest[n] + noise[n];
+    mu[n] += r_species_a[J_species[n]] + r_reg_a[J_reg[n]] + r_species_b[J_species[n]] * pforest[n] + r_reg_b[J_reg[n]] * pforest[n] + r_st_b[J_st[n]] * pforest[n] + obs_offset[J_obs[n]] +  noise[n];
   }
   
   target += poisson_log_lpmf(count | mu);
