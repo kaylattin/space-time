@@ -280,12 +280,7 @@ generated quantities{
   corr_matrix[M_reg] Cor_reg = multiply_lower_tri_self_transpose(L_reg);
   
   corr_matrix[M_st] Cor_st = multiply_lower_tri_self_transpose(L_st);
-  
-  
-  // Y_rep for posterior predictive check
-  //for(i in 1:ncounts){
-  //  y_rep[i] = poisson_log_rng(a[species[i], reg[i]] + b[reg[i], st[i]] * pforest[i] + obs_offset[obs[i]] + noise[i]);
-  //}
+
 
 }
 
@@ -323,46 +318,3 @@ ppc_dens_overlay(y = d$Count, yrep = y_rep)
 
 fit_summary <- summary(stan.fit)
 s <- print(fit_summary$summary, pars = "b")
-
-# prior predictive check -------------------------------------------------------------------
-
-dat_pp <- list(
-  ncounts = nrow(d),
-  pforest = d$Forest.cover - mean(d$Forest.cover)
-)
-
-
-
-pp <- " data {
-
-  // No. observations & groups
-  int<lower=1> ncounts;                         // Number of observations
-  real pforest[ncounts];
-  
-}
-
-generated quantities{
-  real<lower=0> sigma_b;
-  real a = normal_rng(0, 0.01);
-  real b = normal_rng(0, sigma_b);
-  int y_sim[ncounts];
-  
-  for(i in 1:ncounts) y_sim[i] = poisson_log_rng(a + b * pforest[i]);
-
-}
-
-
-"
-
-model <- stan(model_code = pp,
-              data = dat_pp,
-              algorithm = "Fixed_param",
-              chains = 1,
-              cores = 3,
-              iter = 1000)
-
-y_rep <- as.matrix(model, pars = "y_sim")
-dim(y_rep)
-
-
-ppc_dens_overlay(y = d$Count, yrep = y_rep)
