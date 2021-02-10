@@ -1,4 +1,4 @@
-## code adapted from the stancode of a brm.fit object of a simpler object
+## code adapted from the stancode of a brm.fit object of a simpler model
 ### unbalanced num of observations across species and regions, so unable to assign to an nspecies x nreg matrix
 
 ## instead each group-level (species, region, st) gets their own matrix of intercepts & slopes (or slope only, depending)
