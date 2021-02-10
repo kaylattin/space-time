@@ -213,6 +213,9 @@ transformed parameters{
 
 model {
 
+
+// this target += syntax is used by brm - copying here for now but not 100% how to adapt it properly? 
+
   vector[N] mu = rep_vector(0.0, N);
   vector[N_ob] mu_ob = rep_vector(0.0, N_ob);
     
