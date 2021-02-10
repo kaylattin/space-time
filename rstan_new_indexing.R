@@ -88,7 +88,7 @@ code <- " data {
   int<lower=1> M_species;                       // Number of coefficients per level (2) - intercept & slope
   int<lower=1> J_species[N];                    // grouping indicator per observation
   // species group-level predictor values -- these were in the brm code but I haven't figured out what they mean
-  // what data to feed in?
+  // what data to feed into these 'Z' objects? just leaving out for now
   //vector[N] Z_species_a;
   //vector[N] Z_species_b;
   int<lower=1> NC_species;   // number of group-level correlations
@@ -174,7 +174,7 @@ parameters {
   vector[N_ecoreg_ob] ecoreg_effect;  // ecoregion group effect
   vector[N_obs_ob] obs_offset;  // Unique offset term for each observer to feed into main model
   
-  vector[N_ob] noise_obs;   // Over-dispersion term for observer sub-model
+  vector[N_ob] noise_ob;   // Over-dispersion term for observer sub-model
   
   real<lower=0> sd_noise_ob;                   
   real<lower=0> sd_ecoreg_ob;                
@@ -214,13 +214,22 @@ transformed parameters{
 model {
 
   vector[N] mu = rep_vector(0.0, N);
+  vector[N_ob] mu_ob = rep_vector(0.0, N_ob);
+    
+    
   for (n in 1:N){
     mu[n] += r_species_a[J_species[n]] + r_reg_a[J_reg[n]] + r_species_b[J_species[n]] * pforest[n] + r_reg_b[J_reg[n]] * pforest[n] + r_st_b[J_st[n]] * pforest[n] + noise[n];
   }
   
   target += poisson_log_lpmf(count | mu);
   
+
+  for(n in 1:N_ob){
+    mu_ob[n] += species_effect[J_species_ob[n]] + route_effect[J_rte_ob[n]] + ecoreg_effect[J_ecoreg_ob[n]] + obs_offset[J_obs_ob[n]] + noise_ob[n];
   
+  }
+  
+  target += poisson_log_lpmf(count_ob | mu_ob);
   
   // priors for main model -----------
   noise ~ normal(0, sd_noise);
@@ -246,7 +255,7 @@ model {
 
   
 // priors for observer model ---------------
-  noise_obs ~ normal(0, sd_noise_ob);
+  noise_ob ~ normal(0, sd_noise_ob);
   sd_noise_ob ~ student_t(4, 0, 1);
 
 
