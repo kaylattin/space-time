@@ -256,17 +256,3 @@ model <- stan(model_code = pp,
 y_rep <- as.matrix(model, pars = "y_sim")
 dim(y_rep)
 
-
-ppc_dens_overlay(y = d$Count, yrep = y_rep)
-© 2021 GitHub, Inc.
-Terms
-Privacy
-Security
-Status
-Docs
-Contact GitHub
-Pricing
-API
-Training
-Blog
-About
