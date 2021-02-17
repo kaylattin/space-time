@@ -23,8 +23,8 @@ d_obs <- d_obs[!is.na(d_obs$Eco_ID),]
 
 ### cut down dataset to test (first 4 comparison regions)
 
-d <- d %>% filter(Region == c(1,2,3,4))
-d_obs <- d_obs %>% filter(ObsN %in% d$ObsN)
+#d <- d %>% filter(Region == c(1,2,3,4))
+#d_obs <- d_obs %>% filter(ObsN %in% d$ObsN)
 
 ### my attempt at adapting this model to RStan --------------------------------------------------------
 
@@ -84,7 +84,7 @@ code <- " data {
   
   
   // data for group-level effects of species
-  int<lower=1> N_species;                       // Number of species levels (407)
+  int<lower=1> N_species;                       // Number of species levels (57)
   int<lower=1> M_species;                       // Number of coefficients per level (2) - intercept & slope
   int<lower=1> J_species[N];                    // grouping indicator per observation
   // species group-level predictor values -- these were in the brm code but I haven't figured out what they mean
