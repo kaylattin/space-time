@@ -61,13 +61,15 @@ code <- " data {
   int<lower=1> ncounts;                         // Number of observations
   int<lower=1> nspecies;                        // Number of species
   int<lower=1> nreg;                            // Number of regions
-  int<lower=1> nst;                             // Number of grouping space or time
+  int<lower=1> nst;                             // Number of grouping space or time\
+  int<lower=1> nobs;
   
   // observed data
   int count[ncounts];                           // Species abundance count observations
   int st[ncounts];                              // Space or time
   int species[ncounts];                         // Species 
   int reg[ncounts];                             // Regions
+  int obs[ncounts];
   real pforest[ncounts];                        // Percent forest cover
   
 
@@ -93,16 +95,16 @@ code <- " data {
 parameters {
 // MAIN MODEL
   matrix[nspecies, nreg] a;                     // Intercept mean varying by species-regions
-  real mu_a;
-  real<lower=0> sigma_a;
+  vector[nspecies] mu_a;
+  vector<lower=0>[nreg] sigma_a;
  
   vector[ncounts] noise;                        // Over-dispersion noise parameter
   real<lower=0> sigma_n;                        // Variance for noise 
   
   
-  real z_b[nspecies, nreg, nst];               // a three-dimensional array
-  vector<lower=0>[nst] sigma_b;                 // Variance for slope
-  cholesky_factor_corr[nst] L_Rho;            // Cholesky correlation matrix for varying effects
+  matrix[nspecies, nreg] z_b[nst];              // a three-dimensional array
+  vector<lower=0>[nspecies] sigma_b;                 // Variance for slope
+  cholesky_factor_corr[nspecies] L_Rho;            // Cholesky correlation matrix for varying effects
   
 
   
@@ -121,11 +123,17 @@ parameters {
 }
 
 transformed parameters{
-  real b[nspecies, nreg, nst];                  // Slope mean measuring forest cover effect, varying by region and by space-time identifier
-
-                                              // an nspecies vector of covariance matrices???
-  b = sigma_b * to_vector(z_b);
+  matrix[nspecies, nreg] b[nst];                // Slope mean measuring forest cover effect, varying by region and by space-time identifier
   
+  matrix[nspecies, nreg] b_space;
+  matrix[nspecies, nreg] b_time;
+  
+  b_time = (diag_pre_multiply(sigma_b, L_Rho) * z_b[1]);
+  
+  b_space = (diag_pre_multiply(sigma_b, L_Rho) * z_b[2]);
+  
+  b[1] = b_time;
+  b[2] = b_space;
   
 }
 
@@ -156,17 +164,27 @@ count_obs ~ poisson_log(lambda_obs);
 // MAIN MODEL 
  sigma_n ~ student_t(4, 0, 1);                   // Prior for scale parameter for noise
  noise ~ normal(0, sigma_n);                     // Prior for noise
- to_vector(z_b) ~ normal(0, 1);                   // Prior for slope z-score
- //L_Rho ~ lkj_corr_cholesky(2);                  // Prior for Cholesky correlation matrix
+ 
+ to_vector(z_b[1]) ~ normal(0, 1);                   // Prior for slope z-score - time
+ to_vector(z_b[2]) ~ normal(0, 1);                   // Prior for slope z-score - space
+ L_Rho ~ lkj_corr_cholesky(2);                  // Prior for Cholesky correlation matrix
  sigma_b ~ student_t(4, 0, 1);                    // Prior for slope variance
  
- sigma_a ~ student_t(4, 0, 1);
- mu_a ~ normal(0, 0.01)
- a ~ normal(mu_a, sigma_a);                       // Prior for intercept
+ for(s in 1:nspecies){
+    mu_a[s] ~ normal(0, 0.01);
+    
+    for(g in 1:nreg){
+      sigma_a[g] ~ student_t(4, 0, 1);
+    
+      a[s, g] ~ normal(mu_a[s], sigma_a[g]);
+    }
+ 
+ }
+
   
   // likelihood
     for(i in 1:ncounts) {
-    lambda[i] = a[species[i], reg[i]] + b[reg[i], st[i]] * pforest[i] + obs_offset[obs[i]] + noise[i];
+    lambda[i] = a[species[i], reg[i]] + b[st[i], species[i], reg[i]] * pforest[i] + obs_offset[obs[i]] + noise[i];
     }
     
 count ~ poisson_log(lambda);          
@@ -175,29 +193,15 @@ count ~ poisson_log(lambda);
 
 generated quantities{
   vector[ncounts] y_rep;
-  matrix[2,2] Rho;
-  
-    
-  // Compute ordinary correlation matrices from Cholesky factors
-  Rho = multiply_lower_tri_self_transpose(L_Rho);
-  
-  
-  
+
   // Y_rep for posterior predictive check
-  //for(i in 1:ncounts){
-  //  y_rep[i] = poisson_log_rng(a[species[i], reg[i]] + b[reg[i], st[i]] * pforest[i] + obs_offset[obs[i]] + noise[i]);
-  //}
+  for(i in 1:ncounts){
+  y_rep[i] = poisson_log_rng(a[species[i], reg[i]] + b[st[i], species[i], reg[i]] * pforest[i] + obs_offset[obs[i]] + noise[i]);
+  }
 }
 "
-# possible reasons this keeps crashing my session:
-# generated quantities is too big (too much RAM) - do a PPC on a subset of the data and then omit for whole dataset?
-# need to add gc()?
-# didn't compile and sample the model properly - changed below (haven't tried yet)
 
-# 2000 divergent transitions and low ESS
-# might need to consider non-centered parameterization if adapt_delta and more iterations doesn't help
-
-# compile the model?
+# compile the model
 model <- stan_model(model_name = "thesis_model",
                     model_code = code)
 
@@ -206,6 +210,8 @@ gc()
 stan.fit <- sampling(object = model,
                      data = d_slim,
                      iter = 2000,
+                     pars = c("noise", "noise_obs"),
+                     include = FALSE,
                      chains = 3,
                      cores = 3,
                      init = 'random',
@@ -213,6 +219,7 @@ stan.fit <- sampling(object = model,
                      control = list(max_treedepth = 15,
                                     adapt_delta = 0.99))
 
+save(stan.fit, file = "feb17_fit.RData")
 
 y_rep <- as.matrix(stan.fit, pars = "y_rep")
 ppc_dens_overlay(y = d$Count, yrep = y_rep)
