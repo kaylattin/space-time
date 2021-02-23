@@ -73,8 +73,9 @@ temporal$nyears <- temporal$lastyear - temporal$firstyear
 
 
 ## SPATIAL SITE SELECTION -------------------------------------------------------------------------------------
-# Find bbs routes with data in 2019
+# Find bbs routes with data in 2019 and omit all the temporal sites identified above
 sp2019 <- bbs[which(bbs$Year == 2019) , ]
+sp2019 <- sp2019 %>% filter(!RouteNumber %in% temporal$RouteNumber)
 sp2019 <- distinct(sp2019, RouteNumber, Year, Forest.cover, Ecoregion_L1Code, Ecoregion_L1Name)
 
 ntemp <- nrow(temporal_loss)
@@ -147,7 +148,7 @@ for(i in 1:53) {
   }
   
   else {
-    spDist.list[[i]] <- paste("need to remove!")
+
   }
 }
 
@@ -158,8 +159,11 @@ sp.list <- vector("list")
 for(i in 1:53){
   dummy <- spDist.list[[i]]
   
-  if(nrow(dummy) > 0) {
+  if(is.null(dummy) == FALSE) {
   dummy <- dummy %>% select(-ref)
+  }
+  else{
+  dummy <- c("dummy", "dummy")
   }
   
   sp.list[[i]] <- dummy
@@ -167,7 +171,7 @@ for(i in 1:53){
 
 
 # n = length of longest list in spDist.list (replace as needed if changing criteria above)
-n <- 88
+n <- 67
 for(i in 1:53){
   df <- unlist(sp.list[[i]])
   length(df) <- n
@@ -175,14 +179,19 @@ for(i in 1:53){
   sp.list[[i]] <- df
 }
 
+
+
 # Cbind list of lists 
 final <- mapply(cbind, sp.list)
+
 # Rename columns to be the temporal route number
 colnames(final) <- temporal$RouteNumber
-
 write.csv(final, "spatial_candidates_300km_5p.csv")
 
-
+final <- do.call("rbind", spDist.list)
+remove <- c(4078, 11256, 4116, 4141, 6073, 11057, 11234, 11407, 11410, 14013, 14018, 14130, 14132, 14136, 14156, 14186, 81050, 68373, 53900)
+final <- final %>% filter(!ref %in% remove)
+write.csv(final, "spatial_candidates_long_raw.csv")
 
 ### filter datasets
 spatial <- do.call("rbind", spDist.list)
