@@ -130,7 +130,7 @@ count_obs ~ poisson_log(lambda_obs);
    
    b_time_raw[s,] ~ normal(0,1); // prior for uncentered raw slopes, Z-score variation among regions after accounting for species mean slope
    sigma_b_time[s] ~ student_t(4, 0, 1); // hyperprior for sd of species time slopes among regs
-   B_TIME[s] ~ normal(0, 0.1); // hyperprior for pecies mean slope
+   B_TIME[s] ~ normal(0, 0.1); // hyperprior for species mean slope
    
    b_space_raw[s,] ~ normal(0,1); // space slope priors
    sigma_b_space[s] ~ student_t(4, 0, 1);
@@ -164,6 +164,6 @@ generated quantities{
 
   // Y_rep for prior predictive check
   for(i in 1:ncounts){
-  y_rep[i] = poisson_log_rng(a[species[i], reg[i]] + b[st[i], species[i], reg[i]] * pforest[i] + obs_offset[obs[i]] + noise[i]);
+  y_rep[i] = poisson_log_rng(a[species[i], reg[i]] + b_space[reg[i], species[i]] * space[i] * pforest[i] + b_time[reg[i], species[i]] * time[i] * pforest[i] + obs_offset[obs[i]] + noise[i]);
   }
 }
