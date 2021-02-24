@@ -60,6 +60,126 @@ data <- rbind(spatial_new, temporal_new)
 data$SpeciesRegion <- paste(data$BBL, data$Region, sep = "")
 
 
+
+#------------------------------#
+#    NO DUPLICATES OPTION!!   |
+#-----------------------------#
+
+
+### GENERATING THE NO-DUPLICATES DATASET --- requires manual labour in Excel before continuing!!!!
+# get the list of species present in each temporal site (across years) - similar format to the spatial site lists in 02_site_selection
+
+
+# export the list - use in Excel to make decisions
+
+
+
+
+
+# get an n_spatial_site (duplicated) by n_species matrix filled with 0-1 indicators - whether that species is present at a given spatial site
+
+# start by loading in the list of non-duplicate spatial sites to remove
+nodup <- read.csv("nonduplicated_sites.txt", header = T)
+nodup <- as.vector(unlist(nodup))
+
+s <- spatial_new %>% distinct(BBL)
+rt <- spatial_new %>% distinct(RouteNumber)
+
+# filter out spatial sites that aren't duplicated in the dataset across temporal sites
+rt <- rt %>% filter(!RouteNumber %in% nodup)
+
+
+# turn into simple vectors
+species <- as.vector(unlist(s))
+routes <- as.vector(unlist(rt))
+
+
+write.csv(routes, "routes_duplicated_feb25.csv")
+write.csv(species, "species_feb25.csv")
+
+
+# create an empty matrix
+mat <- matrix(nrow = 58, ncol = 244)
+
+for( i in 1:244 ){
+  f <- df_40 %>% filter(RouteNumber == routes[i])
+  
+  for( n in 1:58 ) {
+    if( species[n] %in% f$BBL == TRUE ) {
+      
+      mat[n, i] <- 1
+      
+    }else{
+      
+      mat[n, i] <- 0
+      
+    }
+    
+  }
+  
+  
+  
+}
+
+
+write.csv(mat, "species_in_each_route_MASTER_FEB25.csv")
+
+# note some Excel work will need to be done to set this up - copy & paste species list into a workbook
+# copy and transpose -> horizontal the list of spatial sites
+# copy and paste the species x spatial sites matrix 
+# only focus on re-assigning the 1's in the matrix (those are the species observations at a spatial site)
+# will need to cross-check continuously to make sure that when assigning to a temporal site, that temporal site also has that species in at least one of the years
+# i.e. refer to the table generated above
+
+
+# reload in the new matrix (after manual) of BBL-spatial-temporal combos, and convert into a list 
+# these are all the species-spatial site-temporal site combos that i'll be considering, chosen to avoid having the same species-level observation as a duplicate
+# but still allowing the spatial sites to be duplicated across temporal sites - as long as the same species isn't been analyzed at the spatial site more than once
+
+
+
+
+# separate data into the space component and create a matching column for species-spatial-temporal
+
+
+
+# filter the space dataset
+
+
+
+
+# load in a list of the non-duplicated spatial sites and their spatial-temporal combos (no species-level separation is required here)
+# filter the space dataset separately for these
+
+
+
+
+
+# rbind the two space datasets together
+
+
+
+
+# separate data into the time component
+temporal_new <- data %>% filter(space.time = 1)
+
+
+
+
+
+
+# continue below to identifying species present by comparison region
+# AND applying the 40% presence threshold criteria, although may need to ease up on that % if there are barely any species left to work with
+
+
+
+
+#### END OF R CODE TO GENERATE THE NON-DUPLICATED DATASET --------------------------------------------------------------------
+
+
+ 
+
+
 # -------------------------------#
 #    SPECIES PRESENT BY REGION   |
 # -------------------------------#
@@ -236,7 +356,7 @@ n_distinct(df_10$BBL)
 
 
 
-write.csv("whole_dataset_over40_5p.csv")
+write.csv(df_40, "whole_dataset_over40_5p - FEB 23.csv")
 #write.csv(df_30, "whole_dataset_over30_5p.csv")
 #write.csv(df_10, "whole_dataset_over10_5p.csv")
 
