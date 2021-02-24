@@ -152,7 +152,7 @@ count_obs ~ poisson_log(lambda_obs);
   // likelihood
     for(i in 1:ncounts) {
       
-    lambda[i] = a[species[i], reg[i]] + b_space[reg[i], species[i]] * space[i] * pforest[i] + b_time[reg[i], species[i]] * time[i] * pforest[i] + obs_offset[obs[i]] + noise[i];
+    lambda[i] = a[species[i], reg[i]] + b_space[species[i], reg[i]] * space[i] * pforest[i] + b_time[species[i], reg[i]] * time[i] * pforest[i] + obs_offset[obs[i]] + noise[i];
     }
     
 count ~ poisson_log(lambda);          
@@ -164,6 +164,6 @@ generated quantities{
 
   // Y_rep for prior predictive check
   for(i in 1:ncounts){
-  y_rep[i] = poisson_log_rng(a[species[i], reg[i]] + b_space[reg[i], species[i]] * space[i] * pforest[i] + b_time[reg[i], species[i]] * time[i] * pforest[i] + obs_offset[obs[i]] + noise[i]);
+  y_rep[i] = poisson_log_rng(a[species[i], reg[i]] + b_space[species[i], reg[i]] * space[i] * pforest[i] + b_time[species[i], reg[i]] * time[i] * pforest[i] + obs_offset[obs[i]] + noise[i]);
   }
 }
