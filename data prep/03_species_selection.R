@@ -14,7 +14,7 @@ bbl <- read.csv("bbl_codes.csv") # had to make manual changes to YRWA, DEJU in E
 
 # some prep - removing spatial & temporal sites that have <10 spatial matches or bbs years
 # leaves me with 40 regions!
-remove <- c(4078, 11256, 4116, 4141, 6073, 11057, 11234, 11407, 11410, 14013, 14018, 14130, 14132, 14136, 14156, 14186, 81050, 68373, 53900)
+remove <- c(4078, 11256, 4116, 4141, 6073, 11057, 11234, 11407, 14410, 14013, 14018, 14130, 14132, 14136, 14156, 14186, 81050, 68373, 53900)
 spatial <- spatial %>% filter(!ref %in% remove)
 
 temporal <- temporal %>% filter(!ref %in% remove)
@@ -68,17 +68,36 @@ data$SpeciesRegion <- paste(data$BBL, data$Region, sep = "")
 
 ### GENERATING THE NO-DUPLICATES DATASET --- requires manual labour in Excel before continuing!!!!
 # get the list of species present in each temporal site (across years) - similar format to the spatial site lists in 02_site_selection
+t_species <- vector("list")
+t_sites <- as.vector(temporal_new %>% distinct(RouteNumber))
+
+for(i in 1:35) {
+  temp <- temporal_new %>% filter(RouteNumber == t_sites[i])
+  
+  t_species[i] <- temp %>% distinct(BBL)
+  
+}
+
+
+n <- 67 # max number of species in a given temporal site (check)
+for(i in 1:35){
+  df <- unlist(t_species[[i]])
+  length(df) <- n
+  
+  t_species[[i]] <- df
+}
+
+
+species_lists <- mapply(cbind, t_species)
 
 
 # export the list - use in Excel to make decisions
-
-
-
+write.csv(species_lists, "temp_species_lists.csv")
 
 
 # get an n_spatial_site (duplicated) by n_species matrix filled with 0-1 indicators - whether that species is present at a given spatial site
 
-# start by loading in the list of non-duplicate spatial sites to remove
+# start by loading in the list of non-duplicate spatial sites - no need to re-allocate so remove for now
 nodup <- read.csv("nonduplicated_sites.txt", header = T)
 nodup <- as.vector(unlist(nodup))
 
@@ -377,44 +396,4 @@ for(i in 1:37) {
 
 t <- mapply(cbind, tally)
 sum(t)
-
-
-
-
-
-s <- df_40 %>% distinct(BBL)
-r <- df_40 %>% filter(space.time == 2) %>% distinct(RouteNumber)
-rt <- df_40 %>% filter(space.time == 2) %>% distinct(RouteNumber)
-
-species <- as.vector(unlist(s))
-routes <- as.vector(unlist(r))
-
-write.csv(routes, "routes_feb23.csv")
-write.csv(species, "species_feb23.csv")
-
-
-mat <- matrix(nrow = 58, ncol = 432)
-
-for( i in 1:432 ){
-  f <- df_40 %>% filter(RouteNumber == routes[i])
-  
-  for( n in 1:58 ) {
-    if( species[n] %in% f$BBL == TRUE ) {
-      
-      mat[n, i] <- 1
-      
-    }else{
-      
-      mat[n, i] <- 0
-      
-    }
-    
-  }
-  
-  
-  
-}
-
-
-write.csv(mat, "species_in_each_route.csv")
 
