@@ -9,8 +9,8 @@
   int<lower=1> nobs;                           // number of unique observers
   
 
-  int<lower=1> sp_reg_mat[nspecies, nreg];   // matrix of region indicators for each species, that is 0-filled for non-occupied regions
-  int<lower=1> nreg_s[nspecies];             // number of reg that a species is present in
+  int<lower=0> sp_reg_mat[nspecies, nreg];   // matrix of region indicators for each species, that is 0-filled for non-occupied regions
+  int<lower=0> nreg_s[nspecies];             // number of reg that a species is present in
   
   
   int count[ncounts];                       // Species abundance count observations
@@ -42,29 +42,24 @@
   
 }
 
-transformed data{
-
-}
 
 parameters {
 // MAIN MODEL
-  matrix[nspecies, nreg] a;                      // intercept measuring mean species abundance
+  vector[nreg] a[nspecies];                      // intercept measuring mean species abundance
   vector[nspecies] mu_a;                         // hyperparameter on mean species abundance
   vector<lower=0>[nspecies] sigma_a;             // sd - variance of each species across reg - used to shrink toward mean species abundance
   
-  
-  matrix[nspecies, nreg] b_time_raw;              // z-score filled time slope estimates
-  matrix[nspecies, nreg] b_space_raw;             // z-score filled space slope estimates
-  vector<lower=0>[nspecies] sigma_b_time;
-  vector<lower=0>[nspecies] sigma_b_space;
-  vector[nspecies] B_TIME;
-  vector[nspecies] B_SPACE;
-  
- 
   vector[ncounts] noise;                        // Over-dispersion noise parameter
   real<lower=0> sigma_n;                        // Variance for noise 
   
-  
+  vector[nreg] b_time_raw[nspecies];              // z-score filled time slope estimates
+  vector[nreg] b_space_raw[nspecies];            // z-score filled space slope estimates
+  vector<lower=0>[nreg] tau_b_time;
+  vector<lower=0>[nreg] tau_b_space;
+  cholesky_factor_corr[nreg] L_Omega_time;
+  cholesky_factor_corr[nreg] L_Omega_space;
+  vector[nspecies] B_TIME;
+  vector[nspecies] B_SPACE;
   
 
   
@@ -83,13 +78,16 @@ parameters {
 }
 
 transformed parameters{
-  matrix[nspecies, nreg] b_time;
-  matrix[nspecies, nreg] b_space;
+    
+  vector[nreg] b_time[nspecies];
+  vector[nreg] b_space[nspecies];
 
+ // non-centered parameterization
 for(s in 1:nspecies){
-  b_time[s,] = b_time_raw[s,] * sigma_b_time[s] + B_TIME[s];   // non-centered parameterization, unstandardizing the z-score array
-  
-  b_space[s,] = b_space_raw[s,] * sigma_b_space[s] + B_SPACE[s];  // non-centered parameterization, unstandardizing the z-score array
+  b_time[s] =  diag_pre_multiply(tau_b_time, L_Omega_time) * b_time_raw[s] + B_TIME[s];   // non-centered parameterization, unstandardizing the z-score array
+ 
+  b_space[s] = diag_pre_multiply(tau_b_space, L_Omega_time) * b_space_raw[s] + B_SPACE[s];   // non-centered parameterization, unstandardizing the z-score array
+    
   
 }
   
@@ -103,13 +101,13 @@ model {
   
 // OBSERVER SUB-MODEL
 sigma_n_obs ~ student_t(4, 0, 1);                 // prior for variances
-sigma_e_obs ~ student_t(4, 0, 1); 
-sigma_r_obs ~ student_t(4, 0, 1);
+sigma_e_obs ~ student_t(20, 0, 1); 
+sigma_r_obs ~ student_t(20, 0, 1);
  
-species_effect ~ normal(0, 0.01);                // Prior for species effect - fixed
+species_effect ~ normal(0, 1);                // Prior for species effect - fixed
 route_effect ~ normal(0, sigma_r_obs);           // Prior for bbs route effect - random
 ecoreg_effect ~ normal(0, sigma_e_obs);          // Prior for ecoregion effect - random
-obs_offset ~ normal(0, 0.01);                    // Prior for observer offset - fixed
+obs_offset ~ normal(0, 1);                    // Prior for observer offset - fixed
 noise_obs ~ normal(0, sigma_n_obs);              // Prior for over-dispersion term
  
    // likelihood
@@ -126,27 +124,28 @@ count_obs ~ poisson_log(lambda_obs);
 
  for(s in 1:nspecies){
    
-   a[s,] ~ normal(mu_a, sigma_a);
+   a[s] ~ normal(mu_a[s], sigma_a[s]);
+   mu_a[s] ~ normal(0,1);
+   sigma_a[s] ~ student_t(4,0,1);
    
-   b_time_raw[s,] ~ normal(0,1); // prior for uncentered raw slopes, Z-score variation among regions after accounting for species mean slope
-   sigma_b_time[s] ~ student_t(4, 0, 1); // hyperprior for sd of species time slopes among regs
+   b_time_raw[s] ~ normal(0,1); // prior for uncentered raw slopes, Z-score variation among regions after accounting for species mean slope
    B_TIME[s] ~ normal(0, 0.1); // hyperprior for species mean slope
    
-   b_space_raw[s,] ~ normal(0,1); // space slope priors
-   sigma_b_space[s] ~ student_t(4, 0, 1);
+   b_space_raw[s] ~ normal(0,1); // space slope priors
    B_SPACE[s] ~ normal(0, 0.1);
    
    
  }
  
+ tau_b_time ~ student_t(4, 0, 1); // hyperprior for sd of species time slopes among regs
+ tau_b_space ~ student_t(4, 0, 1);
+ L_Omega_time ~ lkj_corr_cholesky(1);
+ L_Omega_space ~ lkj_corr_cholesky(1);
+ 
  
  sigma_n ~ student_t(4, 0, 1); // Prior for scale parameter for noise
  noise ~ normal(0, sigma_n);  // Prior for noise
  
-
-
- }
-
 
   
   // likelihood
@@ -160,10 +159,10 @@ count ~ poisson_log(lambda);
 }
 
 generated quantities{
-  vector[ncounts] y_rep;
+  //int<lower=0> y_rep[2, ncounts];
 
   // Y_rep for prior predictive check
-  for(i in 1:ncounts){
-  y_rep[i] = poisson_log_rng(a[species[i], reg[i]] + b_space[species[i], reg[i]] * space[i] * pforest[i] + b_time[species[i],] * time[i] * pforest[i] + obs_offset[obs[i]] + noise[i]);
-  }
+  //for(i in 1:ncounts){
+  //y_rep[i] = poisson_log_rng(a[species[i], reg[i]] + b_space[species[i], reg[i]] * space[i] * pforest[i] + b_time[species[i],] * time[i] * pforest[i] + obs_offset[obs[i]] + noise[i]);
+  //}
 }
