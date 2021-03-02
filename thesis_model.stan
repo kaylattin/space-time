@@ -160,10 +160,45 @@ count ~ poisson_log(lambda);
 }
 
 generated quantities{
-  int<lower=0> y_rep[2, ncounts];
+  int<lower=0> y_rep[ncounts];
+  
+  // Find slope values I'm after using the tracking matrix 
+  // for every species, cycle through the regions that species is found in and pull out the slopevalues
+  vector[nreg] b_time_vect[nspecies];
+  vector[nreg] b_space_vect[nspecies];
+    
+for(s in 1:nspecies){
+  
+  vector[nreg] b_time_index;  // 
+  
+  for(i in 1:nreg_s[s]){
+    
+    b_time_index[i] = b_time[s, sp_reg_mat[s,i]];
+  }
+  
+  b_time_vect[s,] = b_time_index; // store slope values for comparison regions in a nspecies-long vector 
+  
+}
+  
+    // Repeat for space slope
+for(s in 1:nspecies){
+  
+  vector[nreg] b_space_index;  // 
+  
+  for(i in 1:nreg_s[s]){
+    
+    b_space_index[i] = b_space[s, sp_reg_mat[s,i]];
+  }
+  
+  b_space_vect[s,] = b_space_index; // store slope values for comparison regions in a nspecies-long vector 
+  
+}
+  
+  
+
 
   // Y_rep for prior predictive check
-  //for(i in 1:ncounts){
-  //y_rep[i] = poisson_log_rng(a[species[i], reg[i]] + b_space[species[i], reg[i]] * space[i] * pforest[i] + b_time[species[i],] * time[i] * pforest[i] + obs_offset[obs[i]] + noise[i]);
-  //}
+  for(i in 1:ncounts){
+  y_rep[i] = poisson_log_rng(a[species[i], reg[i]] + b[spacetime[i], species[i], reg[i]] * pforest[i] + obs_offset[obs[i]] + noise[i]);
+  }
 }

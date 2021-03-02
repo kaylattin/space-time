@@ -7,12 +7,12 @@ rm(list = ls())
 gc()
 
 
-d <- read.csv("whole_dataset_over40_5p.csv")
-d_obs <- read.csv("observer_dataset_over40.csv")
+d <- read.csv("whole_dataset_over40_5p - FEB 23.csv")
+d_obs <- read.csv("observer_dataset_over40 - FEB 23.csv")
 
 
 ### cut down dataset to test (first 4 comparison regions)
-d <- d %>% filter(Region == c(1,2,3,4))
+d <- d %>% filter(Region %in% c(1,2,3,4))
 d_obs <- d_obs %>% filter(ObsN %in% d$ObsN)
 
 
@@ -35,6 +35,7 @@ sp_ind <- sp_ind[!duplicated(sp_ind),]
 sp_ind$id <- 1
 
 sp_ind_wide <- spread(sp_ind, key = "reg_id", value = "id", fill = 0)
+sp_ind_wide <- data.frame(sp_ind_wide) %>% select(-BBL)
 
 
 
@@ -49,7 +50,8 @@ d_slim <- list(
   sp_reg_mat = sp_ind_wide,
   
   count = d$Count,
-  st = d$space.time,
+  space = d$space,
+  time = d$time,
   species = d$species, 
   reg = d$reg_id,
   pforest = (d$Forest.cover - mean(d$Forest.cover)), # centered
@@ -71,7 +73,9 @@ d_slim <- list(
   
 )
 
+
 # compile the model --------------------------
+setwd("/Users/kayla/Documents/space-time")
 model <- stan_model(file = "thesis_model.stan")
 gc()
 
@@ -79,17 +83,17 @@ gc()
 stan.fit <- sampling(object = model,
                      data = d_slim,
                      iter = 2000,
-                     pars = c("noise", "noise_obs"),
+                     pars = c("noise", "noise_obs", "species_effect", "route_effect", "ecoreg_effect"),
                      include = FALSE,
                      chains = 3,
                      cores = 3,
                      init = 'random',
                      show_messages = TRUE,
-                     control = list(max_treedepth = 15,
-                                    adapt_delta = 0.99))
+                     control = list(max_treedepth = 20,
+                                    adapt_delta = 0.999))
 
-save(stan.fit, file = ".RData")
-
+save(stan.fit, file = "feb28_test.RData")
+load("feb28_test.RData")
 
 # prior predictive check ------------------------------------
 y_rep <- as.matrix(stan.fit, pars = "y_rep")

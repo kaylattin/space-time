@@ -1,18 +1,18 @@
 ## load up stuff
-setwd("/Users/kayla/Documents/space-time/data prep")
+setwd("/Users/kayla/Documents/space-time/final datasets")
 library(tidyverse)
 library(cmdstanr)
-library(bayesplot)
+
 rm(list = ls())
 gc()
 
 
-d <- read.csv("whole_dataset_over40_5p - FEB 23.csv")
-d_obs <- read.csv("observer_dataset_over40 - FEB 23.csv")
+d <- read.csv("whole_dataset_over40_ND.csv")
+d_obs <- read.csv("observer_dataset_over40_ND.csv")
 
 
 ### cut down dataset to test (first 4 comparison regions)
-d <- d %>% filter(Region %in% c(1,2,3,4))
+d <- d %>% filter(Region %in% c(1,2,3,4,5))
 d_obs <- d_obs %>% filter(ObsN %in% d$ObsN)
 
 
@@ -30,12 +30,7 @@ summ <- d %>% group_by(BBL) %>% summarize(nsp = n_distinct(reg_id))
 
 ### create an indicator ragged array that determines which species are present at which regions
 # it is nreg x nspecies wide
-sp_ind <- d %>% group_by(reg_id, BBL) %>% select(reg_id, BBL)
-sp_ind <- sp_ind[!duplicated(sp_ind),]
-sp_ind$id <- 1
-
-sp_ind_wide <- spread(sp_ind, key = "reg_id", value = "id", fill = 0)
-sp_ind_wide <- data.frame(sp_ind_wide) %>% select(-BBL)
+sp_reg_mat <- as.matrix(read.csv("pseudo_ragged_array_nd.csv"))
 
 
 ## set up data -------------------------------
@@ -46,7 +41,7 @@ d_slim <- list(
   nst = 2,
   nobs = length(unique(d$ObsN)),
   nreg_s = summ$nsp,
-  sp_reg_mat = sp_ind_wide,
+  sp_reg_mat =  sp_reg_mat,
   
   count = d$Count,
   space = d$space,
