@@ -57,8 +57,11 @@ temporal_new$Region <- as.integer(as.factor(temporal_new$ref))
 data <- rbind(spatial_new, temporal_new)
 
 # Make species-region index
+data$Region <- as.integer(as.factor(data$Region))
 data$SpeciesRegion <- paste(data$BBL, data$Region, sep = "")
 
+
+## ------------------------------------------------------------------------------------------
 
 
 #------------------------------#
@@ -298,12 +301,12 @@ d_filtered <- rbind(spatial_filtered, temporal_filtered)
 ### Finding list of species present are more than >50% or >40% of sites or years within their regions
 
 # Find the number of unique routes in each region, in both spatial and temporal datasets
-spatial_rc <- data %>% group_by(space.time, Region) %>% summarise(RouteCount = n_distinct(RouteNumber)) %>% filter(space.time == 2)
-temporal_rc <- data %>% group_by(space.time, Region) %>% summarise(YearCount = n_distinct(Year)) %>% filter(space.time == 1)
+spatial_rc <- d_filtered %>% group_by(space.time, Region) %>% summarise(RouteCount = n_distinct(RouteNumber)) %>% filter(space.time == 2)
+temporal_rc <- d_filtered %>% group_by(space.time, Region) %>% summarise(YearCount = n_distinct(Year)) %>% filter(space.time == 1)
 
 
 # Filter for species present >= 1 at a site or year
-df_present <- data %>% filter(Count >= 1)
+df_present <- d_filtered %>% filter(Count >= 1)
 
 # Find number of spatial sites a species is present at within their region
 spatial_pc <- df_present %>% group_by(space.time, Region, SpeciesRegion) %>% summarise(SpatialPresent = n_distinct(Transect)) %>% filter(space.time == 2)
@@ -320,7 +323,7 @@ temporal_rcpc <- merge(temporal_rc, temporal_pc, by = "Region")
 temporal_rcpc <- select(temporal_rcpc, -c(space.time.x, space.time.y, Region))
 temporal_rcpc$Prop.Temporal <- (temporal_rcpc$TemporalPresent / temporal_rcpc$YearCount)
 
-rcpc <- merge(spatial_rcpc, temporal_rcpc)
+rcpc <- merge(spatial_rcpc, temporal_rcpc, by = "SpeciesRegion")
 
 
 ## Find speciesregion codes where species present >= 40% of spatial sites and years in that region
@@ -370,13 +373,9 @@ for(i in 1:nrows){
 #write.csv(rcpc, "species_prop40_to_10.csv")
 rcpc_new <- select(rcpc, c(SpeciesRegion, over10, over40, over30, over20))
 
-n_over40 <- sum(rcpc$over40) # 310 speciesregions
-n_over30 <- sum(rcpc$over30) # 405 speciesregions
-n_over20 <- sum(rcpc$over20) # 405 speciesregions
-n_over10 <- sum(rcpc$over10) # 405 speciesregions
 
 # split the og dataframe again into spatial and temporal
-df_final <- merge(data, rcpc_new, by = "SpeciesRegion")
+df_final <- merge(d_filtered, rcpc_new, by = "SpeciesRegion")
 
 df_40 <- df_final %>% filter(over40 == 1)
 df_30 <- df_final %>% filter(over30 == 1)
@@ -391,12 +390,8 @@ n_distinct(df_10$BBL)
 
 
 
-
-
-
 write.csv(df_40, "whole_dataset_over40_ND.csv")
-#write.csv(df_30, "whole_dataset_over30_5p.csv")
-#write.csv(df_10, "whole_dataset_over10_5p.csv")
+write.csv(df_30, "whole_dataset_over30_ND.csv")
 
 tally <- vector("list")
 
@@ -404,15 +399,22 @@ df_10$Region <- as.integer(as.factor(df_10$ref))
 
 
 
-## extra summaries and stuff
+## extra summaries and stuff - helps with ragged array creation
+setwd("~/space-time/final datasets")
 
-for(i in 1:37) {
-  region <- df_10 %>% filter(Region == i)
-  
-  tally[[i]] <- n_distinct(region$BBL)
-  
-}
+dat <- read.csv("whole_dataset_over40_D.csv")
+dat_nd <- read.csv("whole_dataset_over40_ND.csv")
 
-t <- mapply(cbind, tally)
-sum(t)
+dat_nd$Region <- as.integer(as.factor(dat_nd$Region))
+dat_nd$SpeciesRegion <- paste(dat_nd$BBL, dat_nd$Region, sep = "")
+
+
+s <- dat %>% distinct(BBL, Region)
+snd <- dat_nd %>% distinct(BBL, Region)
+
+s <- arrange(s, BBL, Region)
+
+snd <- arrange(snd, BBL, Region)
+write.csv(s, "species_sort.csv")
+write.csv(snd, "species_sort_nd.csv")
 
