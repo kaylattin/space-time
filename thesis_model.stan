@@ -45,15 +45,15 @@
 
 parameters {
 // MAIN MODEL
-  vector[nreg] a[nspecies];                      // intercept measuring mean species abundance
+  matrix[nspecies, nreg] a;                     // intercept measuring mean species abundance
   vector[nspecies] mu_a;                         // hyperparameter on mean species abundance
   vector<lower=0>[nspecies] sigma_a;             // sd - variance of each species across reg - used to shrink toward mean species abundance
   
   vector[ncounts] noise;                        // Over-dispersion noise parameter
   real<lower=0> sigma_n;                        // Variance for noise 
   
-  vector[nreg] b_time_raw[nspecies];              // z-score filled time slope estimates
-  vector[nreg] b_space_raw[nspecies];            // z-score filled space slope estimates
+  matrix[nreg, nspecies] b_time_raw;              // z-score filled time slope estimates
+  matrix[nreg, nspecies] b_space_raw;           // z-score filled space slope estimates
   vector<lower=0>[nreg] tau_b_time;
   vector<lower=0>[nreg] tau_b_space;
   cholesky_factor_corr[nreg] L_Omega_time;
@@ -79,18 +79,17 @@ parameters {
 
 transformed parameters{
     
-  vector[nreg] b_time[nspecies];
-  vector[nreg] b_space[nspecies];
+  matrix[nspecies, nreg] b_time;
+  matrix[nspecies, nreg] b_space;
 
  // non-centered parameterization
 for(s in 1:nspecies){
-  b_time[s] =  diag_pre_multiply(tau_b_time, L_Omega_time) * b_time_raw[s] + B_TIME[s];   // non-centered parameterization, unstandardizing the z-score array
+  b_time[s,] =  B_TIME[s] + (diag_pre_multiply(tau_b_time, L_Omega_time) * b_time_raw[,s])';   // non-centered parameterization, assumes b_time ~ norm(B_TIME, covmatrix)
  
-  b_space[s] = diag_pre_multiply(tau_b_space, L_Omega_time) * b_space_raw[s] + B_SPACE[s];   // non-centered parameterization, unstandardizing the z-score array
-    
+  b_space[s,] = B_SPACE[s] + (diag_pre_multiply(tau_b_space, L_Omega_space) * b_space_raw[,s])';   // non-centered parameterization, assumes b_space ~ norm(B_SPACE, covmatrix)
   
-}
-  
+  // slope estimates are shrunk toward their species-level means using information on the covariance between species & regions?
+ } 
 
 }
 

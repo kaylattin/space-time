@@ -89,7 +89,6 @@ fit <- mod$sample(
   max_treedepth = 16,
   adapt_delta = 0.99,
   show_messages = TRUE,
-  
 )
 
 fit$save_object(file = "march1.RData")
@@ -98,6 +97,8 @@ fit$save_object(file = "march1.RData")
 
 
 # dumping code from Adam
+# select for indexes that i want for each biome -> new matrices
+# for each species-reg index, calculate:
 bsl = function(y,x){
   n = length(x)
   sy = sum(y)
@@ -108,8 +109,8 @@ bsl = function(y,x){
   return(b)
 }
 
-xx = 1:21
-yy = (xx-mean(xx))*0.2 + rnorm(length(xx),0,1)
+xx = b_space
+yy = b_time
 bsl(y = yy,x = xx)
 
 ## it gives the same estimate as lm
