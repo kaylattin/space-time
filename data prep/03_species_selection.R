@@ -176,39 +176,35 @@ write.csv(mat, "species_in_each_route_MASTER_FEB25.csv")
 # reload in the new matrix (after manual) of BBL-spatial-temporal combos, and convert into a list 
 # these are all the species-spatial site-temporal site combos that i'll be considering, chosen to avoid having the same species-level observation as a duplicate
 # but still allowing the spatial sites to be duplicated across temporal sites - as long as the same species isn't been analyzed at the spatial site more than once
+species_mat <- read.csv("no_dups_species.csv")
 
+speciescombo <- as.vector(t(species_mat))
 
-
+# convert matrix to vector
 
 # separate data into the space component and create a matching column for species-spatial-temporal
 data$indexcombo <- paste(data$BBL, data$RouteNumber, data$ref, sep="-")
-data <- data %>% filter(space.time == 2)
+spatial <- data %>% filter(space.time == 2)
 
 
 # filter the space dataset
-
-
+data_sc <- data %>% filter(indexcombo %in% speciescombo)
 
 
 # load in a list of the non-duplicated spatial sites and their spatial-temporal combos (no species-level separation is required here)
 # filter the space dataset separately for these
+nodups <- as.vector(unlist(read.csv("nonduplicated_sites.txt", header = T)))
 
-
-
-
+data_nodups <- data %>% filter(RouteNumber %in% nodups)
 
 # rbind the two space datasets together
-
-
+spatial_new <- rbind(data_sc, data_nodups)
 
 
 # separate data into the time component
-temporal_new <- data %>% filter(space.time = 1)
+temporal_new <- data %>% filter(space.time == 1)
 
-
-
-
-
+data <- rbind(spatial_new, temporal_new)
 
 # continue below to identifying species present by comparison region
 # AND applying the 40% presence threshold criteria, although may need to ease up on that % if there are barely any species left to work with
@@ -245,7 +241,7 @@ t.species <- select(t.species, -Count)
 s.species <- select(s.species,  -Count)
 
 # Find species present (Count > 0) in temporal years and spatial sites for each region
-for(i in 1:35) {
+for(i in 1:34) {
   t[[i]] <- filter(t.species, Region == i)
   s[[i]] <- filter(s.species, Region == i)
   
@@ -253,7 +249,7 @@ for(i in 1:35) {
 }
 
 # Code to prep for unlisting to summary table
-for(i in 1:35){
+for(i in 1:34){
   dummy <- species[[i]]
   speciesv2[[i]] <- dummy %>% select(-Region)
   sp <- unlist(speciesv2[[i]])
@@ -264,17 +260,17 @@ for(i in 1:35){
 
 # Saving summary table
 matched_region <- mapply(cbind, sp.list)
-colnames(matched_region) <- paste("Region", seq(1:35), sep="")
+colnames(matched_region) <- paste("Region", seq(1:34), sep="")
 #write.csv(matched_region, "matched_species_by_region_5p.csv")
-write.xlsx(species, "matched_species_by_region_WORKBOOK_5p.xlsx")
+write.xlsx(species, "matched_species_by_region_WORKBOOK_march2.xlsx")
 
 
 ### Filter the datasets one-by-one by region (can't do it all at once because each region as their own species list)
 spatial_r <- vector("list")
 temporal_r <- vector("list")
 
-for(i in 1:35) {
-  species <- read_excel("matched_species_by_region_WORKBOOK_5p.xlsx", sheet = i)
+for(i in 1:34) {
+  species <- read_excel("matched_species_by_region_WORKBOOK_march2.xlsx", sheet = i)
   s.region <- spatial_new %>% filter(Region == i)
   t.region <- temporal_new %>% filter(Region == i)
   
@@ -398,7 +394,7 @@ n_distinct(df_10$BBL)
 
 
 
-write.csv(df_40, "whole_dataset_over40_5p - FEB 23.csv")
+write.csv(df_40, "whole_dataset_over40_ND.csv")
 #write.csv(df_30, "whole_dataset_over30_5p.csv")
 #write.csv(df_10, "whole_dataset_over10_5p.csv")
 
