@@ -15,8 +15,6 @@
   
   
   int count[ncounts];                       // Species abundance count observations
-  int<lower=0, upper=1> space[ncounts];     // 0/1 indicator for spatial slopes, space == 0
-  int<lower=0, upper=1> time[ncounts];      // 0/1 indicator for temporal slopes, time == 1
   int spacetime[ncounts];  // index variable for space time
   int species[ncounts];                     // Species 
   int reg[ncounts];                        // Regions
@@ -133,7 +131,7 @@ count_obs ~ poisson_log(lambda_obs);
    
    b_time_raw[s,] ~ std_normal(); // prior for uncentered raw slopes, Z-score variation among regions after accounting for species mean slope
    sigma_time[s] ~ student_t(4, 0, 1);
-   B_TIME[s] ~ normal(0, 0.01); // hyperprior for species mean slope
+   B_TIME[s] ~ normal(0, 0.1); // hyperprior for species mean slope
    
    b_space_raw[s,] ~ std_normal(); // space slope priors
    sigma_space[s] ~ student_t(4, 0, 1);
@@ -173,7 +171,7 @@ for(s in 1:nspecies){
   
   for(i in 1:nreg_s[s]){
     
-    b_time_index[i] = b_time[s, sp_reg_mat[s,i]];
+    b_time_index[i] = b[1, s, sp_reg_mat[s,i]];
   }
   
   b_time_vect[s,] = b_time_index; // store slope values for comparison regions in a nspecies-long vector 
@@ -187,7 +185,7 @@ for(s in 1:nspecies){
   
   for(i in 1:nreg_s[s]){
     
-    b_space_index[i] = b_space[s, sp_reg_mat[s,i]];
+    b_space_index[i] = b[2, s, sp_reg_mat[s,i]];
   }
   
   b_space_vect[s,] = b_space_index; // store slope values for comparison regions in a nspecies-long vector 
