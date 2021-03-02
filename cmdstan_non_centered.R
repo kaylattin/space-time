@@ -38,7 +38,6 @@ sp_ind_wide <- spread(sp_ind, key = "reg_id", value = "id", fill = 0)
 sp_ind_wide <- data.frame(sp_ind_wide) %>% select(-BBL)
 
 
-
 ## set up data -------------------------------
 d_slim <- list(
   ncounts = nrow(d),
@@ -52,9 +51,10 @@ d_slim <- list(
   count = d$Count,
   space = d$space,
   time = d$time,
+  spacetime = d$space.time,
   species = d$species, 
   reg = d$reg_id,
-  pforest = (d$Forest.cover - mean(d$Forest.cover)), # centered
+  pforest = as.vector(scale(d$Forest.cover)), # standardized
   obs = as.integer(as.factor(d$ObsN)),
   
   
@@ -77,21 +77,27 @@ d_slim <- list(
 # compile the model in cmdstan -------------------
 
 file <- file.path("~/space-time/thesis_model.stan")
-mod <- cmdstan_model(file)
+mod <- cmdstan_model(file, pedantic = TRUE)
 
 # run the model --------------
 fit <- mod$sample(
   data = d_slim,
   chains = 2,
-  iter_warmup = 1000,
-  iter_sampling = 500,
+  iter_warmup = 500,
+  iter_sampling = 1000,
   parallel_chains = 2,
-  max_treedepth = 16,
-  adapt_delta = 0.99,
+  max_treedepth = 12,
+  adapt_delta = 0.9,
+  iter = 0.1,
   show_messages = TRUE,
+  output_dir = "~\space-time\cmdstan output files"
 )
 
-fit$save_object(file = "march1.RData")
+fit$save_object(file = "march2.RDS")
+fit$cmdstan_diagnose()
+
+# create a stan.fit object 
+stanfit <- rstan::read_stan_csv(fit$output_files())
 
 ## 2nd stage - a priori calculation of space vs. time slopes --------------
 
@@ -116,6 +122,5 @@ bsl(y = yy,x = xx)
 ## it gives the same estimate as lm
 mlm = lm(yy~xx)
 mlm$coefficients[[2]]
-
 
 
