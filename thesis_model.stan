@@ -15,7 +15,8 @@
   
   
   int count[ncounts];                       // Species abundance count observations
-  int spacetime[ncounts];  // index variable for space time
+  int<lower=0> space[ncounts];  // 0-1 indicator for space
+  int<lower=0> time[ncounts];  // 0-1 indicator for time
   int species[ncounts];                     // Species 
   int reg[ncounts];                        // Regions
 
@@ -46,7 +47,7 @@
 
 parameters {
 // MAIN MODEL
-  matrix[nspecies, nreg] a;                     // intercept measuring mean species abundance
+  matrix[nspecies, nreg] a_raw;                     // intercept measuring mean species abundance
   vector[nspecies] mu_a;                         // hyperparameter on mean species abundance
   vector<lower=0>[nspecies] sigma_a;             // sd - variance of each species across reg - used to shrink toward mean species abundance
   
@@ -77,21 +78,28 @@ parameters {
 }
 
 transformed parameters{
-    
+  matrix[nspecies, nreg] a;
   matrix[nspecies, nreg] b_time;
   matrix[nspecies, nreg] b_space;
-  matrix[nspecies, nreg] b[nst];
 
- // non-centered parameterization
+ // non-centered parameterization for slope
 for(s in 1:nspecies){
-  b_time[s,] =  b_time_raw[s,] * sigma_time[s] + B_TIME[s];   // non-centered parameterization, assumes b_time ~ norm(B_TIME, covmatrix)
+  b_time[s,] =  b_time_raw[s,] * sigma_time[s] + B_TIME[s];   
  
   b_space[s,] = b_space_raw[s,] * sigma_space[s] + B_SPACE[s];
-  // slope estimates are shrunk toward their species-level means using information on the covariance between species & regions?
+
  } 
  
- b[1] = b_time;
- b[2] = b_space;
+
+// non-centered parameterization for intercept
+
+for(s in 1:nspecies){
+  
+  a[s,] = a_raw[s,] * sigma_a[s] + mu_a[s];
+  
+}
+
+
 
 }
 
@@ -125,7 +133,7 @@ count_obs ~ poisson_log(lambda_obs);
 
  for(s in 1:nspecies){
    
-   a[s,] ~ normal(mu_a[s], sigma_a[s]);
+   a_raw[s,] ~ std_normal();
    mu_a[s] ~ normal(0, 0.1);
    sigma_a[s] ~ student_t(4,0,1);
    
@@ -150,18 +158,19 @@ count_obs ~ poisson_log(lambda_obs);
   // likelihood
     for(i in 1:ncounts) {
       
-    lambda[i] = a[species[i], reg[i]] + b[spacetime[i], species[i], reg[i]] * pforest[i] + obs_offset[obs[i]] + noise[i];
+    lambda[i] = a[species[i], reg[i]] + b_time[species[i], reg[i]] * time[i] * pforest[i] + b_space[species[i], reg[i]] * space[i] * pforest[i] + obs_offset[obs[i]] + noise[i];
     }
     
 count ~ poisson_log(lambda);          
    
 }
 
+
 generated quantities{
   int<lower=0> y_rep[ncounts];
   
   // Find slope values I'm after using the tracking matrix 
-  // for every species, cycle through the regions that species is found in and pull out the slopevalues
+  // for every species, cycle through the regions that species is found in and pull out the slopevalues?
   vector[nreg] b_time_vect[nspecies];
   vector[nreg] b_space_vect[nspecies];
     
