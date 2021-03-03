@@ -73,21 +73,16 @@ transformed parameters{
   vector[nreg] b_space;
 
  // non-centered parameterization for slope
-for(1 in 1:nreg){
-  b_time[g] =  b_time_raw[g] * sigma_time[g] + B_TIME[g];   
+  b_time =  b_time_raw * sigma_time + B_TIME;   
  
-  b_space[g] = b_space_raw[g] * sigma_space[g] + B_SPACE[g];
+  b_space = b_space_raw * sigma_space + B_SPACE;
 
- } 
  
 
 // non-centered parameterization for intercept
-
-for(g in 1:nreg){
   
-  a[g] = a_raw[g] * sigma_a[g] + mu_a[g];
+  a = a_raw * sigma_a + mu_a;
   
-}
 
 
 
@@ -122,22 +117,18 @@ diversity_obs ~ normal(mu_obs, sigma_obs);
 
 // MAIN MODEL 
 
- for(g in 1:nreg){
+   a_raw ~ std_normal();
+   mu_a ~ normal(0, 0.1);
+   sigma_a ~ student_t(4,0,1);
    
-   a_raw[g] ~ std_normal();
-   mu_a[g] ~ normal(0, 0.1);
-   sigma_a[g] ~ student_t(4,0,1);
+   b_time_raw ~ std_normal(); // prior for uncentered raw slopes, Z-score variation among regions after accounting for species mean slope
+   sigma_time ~ student_t(4, 0, 1);
+   B_TIME ~ normal(0, 0.1); // hyperprior for species mean slope
    
-   b_time_raw[g] ~ std_normal(); // prior for uncentered raw slopes, Z-score variation among regions after accounting for species mean slope
-   sigma_time[g] ~ student_t(4, 0, 1);
-   B_TIME[g] ~ normal(0, 0.1); // hyperprior for species mean slope
-   
-   b_space_raw[g] ~ std_normal(); // space slope priors
-   sigma_space[g] ~ student_t(4, 0, 1);
-   B_SPACE[g] ~ normal(0, 0.1);
-   
-   
- }
+   b_space_raw ~ std_normal(); // space slope priors
+   sigma_space ~ student_t(4, 0, 1);
+   B_SPACE ~ normal(0, 0.1);
+  
 
  sigma ~ exponential(1);
   
