@@ -162,18 +162,26 @@ east_forest <- biome %>% filter(biome == 1)
 
 d_1 <- d %>% filter(Region %in% east_forest$region)
 
-nspecies_1 <- d_1 %>% distinct(Species)
-nreg_1 <- d_1 %>% distinct(Region)
+species_1 <- d_1 %>% distinct(Species)
+reg_1 <- d_1 %>% distinct(Region)
+
+nspecies_1 <- species_1 %>% n_distinct(Species)
+nreg_1 <- reg_1 %>% n_distinct(Region)
+
 
 # how many species and regions in northwestern mountains?
 west_mount <- biome %>% filter(biome == 2)
 
 d_2 <- d %>% filter(Region %in% west_mount$region)
 
-nspecies_2 <- d_2 %>% distinct(Species)
-nreg_1 <- d_2 %>% distinct(Region)
+species_2 <- d_2 %>% distinct(Species)
+reg_2 <- d_2 %>% distinct(Region)
+
+nspecies_2 <- species_2 %>% n_distinct(Species)
+nreg_2 <- reg_2 %>% n_distinct(Region)
 
 
+# initialize empty lists & arrays
 xx <- array(numeric(), c(niter, nspecies, nreg))
 yy <- array(numeric(), c(niter, nspecies, nreg))
 
@@ -187,9 +195,9 @@ xx_2 <- array(numeric(), c(niter, nspecies_2, nreg_2))
 yy_2 <- array(numeric(), c(niter, nspecies_2, nreg_2))
 
 
-mlm <- rep(list(list()), 23)
-mlm_1 <- rep(list(list()), 23)
-mlm_2 <- rep(list(list()), 23)
+mlm <- rep(list(list()), nspecies)
+mlm_1 <- rep(list(list()), nspecies_1)
+mlm_2 <- rep(list(list()), nspecies_2)
 
 
 
@@ -242,5 +250,3 @@ mlm_2 <- rep(list(list()), 23)
 # calculated from the niterations of space and time
 # so each mlm[[s]][[g]]$coefficients[[2]] is a slope estimate 
 # distribution of slope estimates makes it possible to get the mean slope between time ~ space across all species-reg combos
-
-# filter for species-reg combos 
