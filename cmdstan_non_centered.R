@@ -12,7 +12,7 @@ gc()
 d <- read.csv("whole_dataset_over40_ND.csv")
 d_obs <- read.csv("observer_dataset_over40_ND.csv")
 n_distinct(d$SpeciesRegion)
-
+d$Species <- as.integer(as.factor(d$BBL))
 
 ## counts of species per region
 summ_r <- d %>% group_by(BBL) %>% summarize(nreg = n_distinct(Region))
@@ -32,16 +32,16 @@ d$time[which(d$time == 1)] <- 1
 
 
 ### create an indicator ragged array that determines which species are present at which regions
+# and which regions a species is found in, in both east and west (for a priori calculations)
 # it is nreg x nspecies wide
 sp_reg_mat <- as.matrix(read.csv("sp_reg_mat_nd.csv", header = F))
 sp_reg_mat_east <- as.matrix(read.csv("sp_reg_mat_east.csv", header = F))
 sp_reg_mat_west <- as.matrix(read.csv("sp_reg_mat_west.csv", header = F))
 
-reg_sp_mat <- as.matrix(read.csv("reg_sp_mat.csv", header = F))
+reg_sp_mat <- as.matrix(read.csv("reg_sp_mat_nd.csv", header = F))
 
 
-# alternatively, create a 0-1 indicator array for species in certain regions
-d$Species <- as.integer(as.factor(d$BBL))
+# create a 0-1 indicator array for species in certain regions
 sp_ind <- d %>% group_by(Region, Species) %>% select(Region, Species)
 sp_ind <- sp_ind[!duplicated(sp_ind),]
 sp_ind$id <- 1
@@ -115,8 +115,8 @@ fit$cmdstan_diagnose()
 summary <- fit$cmdstan_summary(pars = c())
 
 # create a stanfit S4 object 
-stanfit <- rstan::read_stan_csv(march4_test_0$output_files())
-save(stanfit, file =  "march5_species_abundance_nd.RDS")
+stanfit <- rstan::read_stan_csv(fit$output_files())
+save(stanfit, file =  "march5_species_abundance_nd.RData")
 
 # load up in shinystan for convergence diagnostics & posterior predictive / assumptions
 shinyfit <- as.shinystan(stanfit)
@@ -135,8 +135,8 @@ draws <- rstan::extract(stanfit, pars = c("a", "b_space", "b_time", "B_TIME", "B
 b_space <- summary(stanfit, pars = "b_space")
 b_time <- summary(stanfit, pars = "b_time")
 
-x <- print(b_space$summary[1:85])
-y <- print(b_time$summary[1:85])
+x <- print(b_space$summary[1:1344])
+y <- print(b_time$summary[1:1344])
 
 plot(x, y)
 
@@ -154,19 +154,23 @@ bsl = function(y,x){
 }
 
 
-nspecies = 17
-nregions = 5
+nspecies = 42
+nregions = 32
 niterations = 2000
+N = 300
 
 # estimate of the slope across all species in a given region
 for(r in 1:nregions){
+  pred_data = data.frame(b_space = seq(min(b_space[, 1:summ_s[r], r]), max(b_space[, 1:summ_s[r], r]), length = N))
+  
   for (i in 1:niterations){
     
-    mlm = lm(b_time[i, reg_sp_mat[r,1:nspecies], r] ~ b_space[i, reg_sp_mat[r, 1:nspecies], r])
+    mlm = lm(b_time[i, reg_sp_mat[r, 1:summ_s[r]], r] ~ b_space[i, reg_sp_mat[r, 1:summ_s[r]], r])
     
     intercept_by_r[i,r] = mlm$coefficients[[1]]
     slope_by_r[i,r] = mlm$coefficients[[2]]
-
+    
+    pred_lines[i, r, 1:N] <- predict(mlm, newdata = pred_data)
    
   }
   
@@ -182,12 +186,16 @@ for(r in 1:nregions){
 
 # estimate of the slope across regions for a given species
 for(s in 1:nspecies){
+  pred_data = data.frame(b_space = seq(min(b_space[, 1:summ_r[s], s]), max(b_space[, 1:summ_r[s], s]), length = N))
+  
   for (i in 1:niterations){
     
-    mlm = lm(b_time[i, s, sp_reg_mat[s, 1:nregions]] ~ b_space[i, s, sp_reg_mat[s, 1:nregions]])
+    mlm = lm(b_time[i, s, sp_reg_mat[s, 1:summ_r[s]]] ~ b_space[i, s, sp_reg_mat[s, 1:summ_r[s]]])
     
     intercept_by_s[i, s] = mlm$coefficients[[1]]
     slope_by_s[i, s] = mlm$coefficients[[2]]
+    
+    pred_lines[i, s, 1:N] <- predict(mlm, newdata = pred_data)
     
     
   }
@@ -218,7 +226,7 @@ nregions_east <- reg_east %>% n_distinct(Region)
 for(r in reg_east){
   for (i in 1:niterations){
     
-    mlm = lm(b_time[i, reg_sp_mat[r,1:nspecies], r] ~ b_space[i, reg_sp_mat[r, 1:nspecies], r])
+    mlm = lm(b_time[i, reg_sp_mat[r,1:summ_s[r]], r] ~ b_space[i, reg_sp_mat[r, 1:summ_s[r]], r])
     
     intercept_by_r_east[i,r] = mlm$coefficients[[1]]
     slope_by_r_east[i,r] = mlm$coefficients[[2]]
@@ -243,7 +251,7 @@ nspecies_east <- species_east %>% n_distinct(Species)
 for(s in species_east){
   for (i in 1:niterations){
     
-    mlm = lm(b_time[i, s, sp_reg_mat_east[s, 1:nregions]] ~ b_space[i, s, sp_reg_mat_east[s, 1:nregions]])
+    mlm = lm(b_time[i, s, sp_reg_mat_east[s, 1:summ_r[s]]] ~ b_space[i, s, sp_reg_mat_east[s, 1:summ_r[s]]])
     
     intercept_by_s_east[i, s] = mlm$coefficients[[1]]
     slope_by_s_east[i, s] = mlm$coefficients[[2]]
@@ -273,7 +281,7 @@ nregions_west <- reg_west %>% n_distinct(Region)
 for(r in reg_west){
   for (i in 1:niterations){
     
-    mlm = lm(b_time[i, reg_sp_mat[r,1:nspecies], r] ~ b_space[i, reg_sp_mat[r, 1:nspecies], r])
+    mlm = lm(b_time[i, reg_sp_mat[r,1:summ_s[r]], r] ~ b_space[i, reg_sp_mat[r, 1:summs[r]], r])
     
     intercept_by_r_west[i,r] = mlm$coefficients[[1]]
     slope_by_r_west[i,r] = mlm$coefficients[[2]]
@@ -298,7 +306,7 @@ nspecies_west <- species_west %>% n_distinct(Species)
 for(s in species_east){
   for (i in 1:niterations){
     
-    mlm = lm(b_time[i, s, sp_reg_mat_west[s, 1:nregions]] ~ b_space[i, s, sp_reg_mat_west[s, 1:nregions]])
+    mlm = lm(b_time[i, s, sp_reg_mat_west[s, 1:summ_r[s]]] ~ b_space[i, s, sp_reg_mat_west[s, 1:summ_r[s]]])
     
     intercept_by_r_west[i, s] = mlm$coefficients[[1]]
     slope_by_r_west[i, s] = mlm$coefficients[[2]]

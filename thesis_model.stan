@@ -141,10 +141,10 @@ sigma_n_obs ~ student_t(4, 0, 1);                 // prior for variances
 sigma_e_obs ~ student_t(4, 0, 1); 
 sigma_r_obs ~ student_t(4, 0, 1);
  
-species_effect ~ std_normal();                // Prior for species effect - fixed
+species_effect ~ normal(0, 0.1);                // Prior for species effect - fixed
 route_effect ~ normal(0, sigma_r_obs);           // Prior for bbs route effect - random
 ecoreg_effect ~ normal(0, sigma_e_obs);          // Prior for ecoregion effect - random
-obs_offset ~ std_normal();                    // Prior for observer offset - fixed
+obs_offset ~ normal(0, 0.1);                    // Prior for observer offset - fixed
 noise_obs ~ normal(0, sigma_n_obs);              // Prior for over-dispersion term
  
    // likelihood
