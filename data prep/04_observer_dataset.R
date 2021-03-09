@@ -27,11 +27,10 @@ dat_obs <- dat_obs[!is.na(dat_obs$Eco_ID),]
 write.csv(dat_obs, "observer_dataset_over40_D.csv")
 
 ### no duplicates
-setwd("~/space-time/data prep")
+setwd("~/space-time/final datasets")
 
 dat <- read.csv("whole_dataset_over40_ND.csv")
-d <- read.csv("clean_bbs_dataset.csv")
-bbl <- read.csv("bbl_codes.csv")
+
 
 d <- merge(d, bbl, by = "English_Common_Name", all.x = TRUE)
 

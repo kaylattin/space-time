@@ -389,23 +389,18 @@ n_distinct(df_10$BBL)
 
 
 
+setwd("~/space-time/final datasets")
 
-write.csv(df_40, "whole_dataset_over40_ND.csv")
+df_40$Region <- as.integer(as.factor(df_40$ref))
+write.csv(dat_nd, "whole_dataset_over40_ND.csv")
 write.csv(df_30, "whole_dataset_over30_ND.csv")
-
-tally <- vector("list")
-
-df_10$Region <- as.integer(as.factor(df_10$ref))
-
 
 
 ## extra summaries and stuff - helps with ragged array creation
-setwd("~/space-time/final datasets")
-
 dat <- read.csv("whole_dataset_over40_D.csv")
 dat_nd <- read.csv("whole_dataset_over40_ND.csv")
 
-dat_nd$Region <- as.integer(as.factor(dat_nd$Region))
+dat_nd$Region <- as.integer(as.factor(dat_nd$ref))
 dat_nd$SpeciesRegion <- paste(dat_nd$BBL, dat_nd$Region, sep = "")
 
 

@@ -1,22 +1,25 @@
 library(tidyverse)
 library(vegan)
-
+setwd("~/space-time/final datasets")
 
 #### MAIN DATASET
 dat <- read.csv("whole_dataset_over40_D.csv")
 n_distinct(dat$ObsN)
 
+d <- d %>% filter(!ref == c("14410, 53063, 69057"))
+
+
 # dataset for total abundance at a transect
-total <- dat %>% group_by(space.time, Region, Transect, RouteNumber, Year, ObsN, Forest.cover) %>%
+total <- dat %>% group_by(space.time, ref, Transect, RouteNumber, Year, ObsN, Forest.cover) %>%
   summarise(TotalAbundance = sum(Count))
 n_distinct(total$ObsN)
 
 # dataset for species richness at a transect
-richness <- dat %>% group_by(space.time, Region, Transect, RouteNumber, Year, ObsN, Forest.cover) %>%
+richness <- dat %>% group_by(space.time, ref, Transect, RouteNumber, Year, ObsN, Forest.cover) %>%
   summarise(Richness = n_distinct(which(Count >= 1))) # how many species present in that route / year combo
 n_distinct(richness$ObsN)
 
-diversity <- dat %>% group_by(space.time, Region, Transect, RouteNumber, Year, ObsN, Forest.cover) %>%
+diversity <- dat %>% group_by(space.time, ref, Transect, RouteNumber, Year, ObsN, Forest.cover) %>%
   summarise(Hprime = diversity(Count, index = "shannon"))
 n_distinct(diversity$ObsN)
 
@@ -50,23 +53,23 @@ write.csv(diversity_obs, "observer_dataset_diversity.csv")
 
 
 ## no duplicates
-
+setwd("~/space-time/final datasets")
 
 #### MAIN DATASET
 dat <- read.csv("whole_dataset_over40_ND.csv")
 n_distinct(dat$ObsN)
 
 # dataset for total abundance at a transect
-total <- dat %>% group_by(space.time, Region, Transect, RouteNumber, Year, ObsN, Forest.cover) %>%
+total <- dat %>% group_by(space.time, ref, Transect, RouteNumber, Year, ObsN, Forest.cover) %>%
   summarise(TotalAbundance = sum(Count))
 n_distinct(total$ObsN)
 
 # dataset for species richness at a transect
-richness <- dat %>% group_by(space.time, Region, Transect, RouteNumber, Year, ObsN, Forest.cover) %>%
+richness <- dat %>% group_by(space.time, ref, Transect, RouteNumber, Year, ObsN, Forest.cover) %>%
   summarise(Richness = n_distinct(which(Count >= 1))) # how many species present in that route / year combo
 n_distinct(richness$ObsN)
 
-diversity <- dat %>% group_by(space.time, Region, Transect, RouteNumber, Year, ObsN, Forest.cover) %>%
+diversity <- dat %>% group_by(space.time, ref, Transect, RouteNumber, Year, ObsN, Forest.cover) %>%
   summarise(Hprime = diversity(Count, index = "shannon"))
 n_distinct(diversity$ObsN)
 
