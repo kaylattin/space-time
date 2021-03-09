@@ -9,7 +9,7 @@ rm(list = ls())
 gc()
 
 
-d <- read.csv("whole_dataset_over40_D.csv")
+d <- read.csv("whole_dataset_over40_ND.csv")
 d_obs <- read.csv("observer_dataset_over40_ND.csv")
 n_distinct(d$SpeciesRegion)
 
@@ -30,7 +30,12 @@ d$time[which(d$time == 1)] <- 1
 
 ### create an indicator ragged array that determines which species are present at which regions
 # it is nreg x nspecies wide
-sp_reg_mat <- as.matrix(read.csv("pseudo_ragged_array_nd.csv", header = F))
+sp_reg_mat <- as.matrix(read.csv("sp_reg_mat_nd.csv", header = F))
+sp_reg_mat_east <- as.matrix(read.csv("sp_reg_mat_east.csv", header = F))
+sp_reg_mat_west <- as.matrix(read.csv("sp_reg_mat_west.csv", header = F))
+
+reg_sp_mat <- as.matrix(read.csv("reg_sp_mat.csv", header = F))
+
 
 # alternatively, create a 0-1 indicator array for species in certain regions
 d$Species <- as.integer(as.factor(d$BBL))
@@ -50,7 +55,9 @@ d_slim <- list(
   nst = 2,
   nobs = length(unique(d$ObsN)),
   nreg_s = summ$nsp,
-  sp_reg_mat =  sp_ind_wide,
+  sp_reg_inclusion = sp_ind_wide,
+  sp_reg_mat =  sp_reg_mat,
+  reg_sp_mat = reg_sp_mat,
   
   count = d$Count,
   space = d$space,
@@ -251,7 +258,7 @@ for(s in species_east){
 
 
 # how many species and regions in northwestern mountains?
-west_forest <- biome %>% filter(biome == 1)
+west_forest <- biome %>% filter(biome == 2)
 
 d_west <- d %>% filter(Region %in% west_forest$region)
 
