@@ -15,8 +15,11 @@ n_distinct(d$SpeciesRegion)
 
 
 ## counts of species per region
-summ <- d %>% group_by(BBL) %>% summarize(nsp = n_distinct(Region))
+summ_r <- d %>% group_by(BBL) %>% summarize(nreg = n_distinct(Region))
 
+
+## counts of region for each species
+summ_s <- d %>% group_by(Region) %>% summarize(nsp = n_distinct(BBL))
 
 ## create space and time indicators
 d$space <- d$space.time
@@ -52,9 +55,10 @@ d_slim <- list(
   ncounts = nrow(d),
   nspecies = length(unique(d$BBL)),
   nreg = length(unique(d$ref)),
-  nst = 2,
   nobs = length(unique(d$ObsN)),
-  nreg_s = summ$nsp,
+  
+  nreg_s = summ_r$nreg,
+  nsp_r = summ_s$nsp,
   sp_reg_inclusion = sp_ind_wide,
   sp_reg_mat =  sp_reg_mat,
   reg_sp_mat = reg_sp_mat,
