@@ -7,11 +7,13 @@
   int<lower=1> nspecies;                       // Number of species total across whole dataset
   int<lower=1> nreg;                           // number of regions
   int<lower=1> nobs;                           // number of unique observers
-  int<lower=1> nst;  // spacetime levels
-  
 
-  int<lower=0> sp_reg_mat[nspecies, nreg];   // matrix of region indicators for each species, that is 0-filled for non-occupied regions
-  int<lower=0> nreg_s[nspecies];             // number of reg that a species is present in
+
+  int<lower=0> sp_reg_inclusion[nspecies, nreg];   // matrix of 0-1 indicators
+  int<lower=0> sp_reg_mat[nspecies, nreg];  // matrix of regions for each species
+  int<lower=0> reg_sp_mat[nreg, nspecies]; // matrix of species for each region
+  int<lower=0> nreg_s[nspecies];    // number of reg that a species is present in
+  int<lower=0> nsp_r[nreg]; // number of species in each region
   
   
   int count[ncounts];                       // Species abundance count observations
@@ -83,25 +85,51 @@ transformed parameters{
   matrix[nspecies, nreg] b_space;
 
  // non-centered parameterization for slope
-for(s in 1:nspecies){
-  b_time[s,] =  b_time_raw[s,] * sigma_time[s] + B_TIME[s];   
  
-  b_space[s,] = b_space_raw[s,] * sigma_space[s] + B_SPACE[s];
-
- } 
  
+ for(s in 1:nspecies){
+   
+   for(g in 1:nreg){
+     
+       // if species-reg combo exists in dataset, pool information across
+      if(sp_reg_inclusion[s,g] == 1){
+        
+        b_time[s,g] =  b_time_raw[s,g] * sigma_time[s] + B_TIME[s];   
+        
+        b_space[s,g] = b_space_raw[s,g] * sigma_space[s] + B_SPACE[s];
+  
+      }else{
+        
+        // if species-reg combo doesn't exist in dataset, treat as a fixed effect (should only be informed by the prior)
+        b_time[s,g] = 0;
+        
+        b_space[s,g] = 0;
+        
+        
+      }
+   }
+ }
 
 // non-centered parameterization for intercept
 
-for(s in 1:nspecies){
-  
-  a[s,] = a_raw[s,] * sigma_a[s] + mu_a[s];
-  
+ for(s in 1:nspecies){
+   
+   for(g in 1:nreg){
+         // if species-reg combo exists in dataset, pool information across
+      if(sp_reg_inclusion[s,g] == 1){
+       
+      a[s,g] = a_raw[s,g] * sigma_a[s] + mu_a[s];
+      
+      }else{
+        
+        a[s,g] = 0;
+        
+        
+      }
+   }
+ }
 }
 
-
-
-}
 
 model {
   vector[ncounts_obs] lambda_obs;
@@ -167,43 +195,53 @@ count ~ poisson_log(lambda);
 
 
 generated quantities{
-  int<lower=0> y_rep[ncounts];
+  int<lower=0> y_rep[ncounts];  // y_rep stores posterior predictive draws
+  matrix[nspecies, nreg]  b_dif_sp;
+  vector[nspecies] b_dif_sp_mean;
+  matrix[nspecies, nreg] b_dif_reg;
+  vector[nreg] b_dif_reg_mean;
+    
+// differences for each species summarized across regions
+  for(s in 1:nspecies){
+     for(g in 1:nreg){
+       if(sp_reg_inclusion[s,g] == 1){
+         b_dif_sp[s,g] = b_time[s,g]-b_space[s,g];
+       }else{
+         b_dif_sp[s,g] = 0;
+       }
+       
+     }
+    
+    
+     
+    
+    
+    b_dif_sp_mean[s] = mean(b_dif_sp[s,sp_reg_mat[s,1:nreg_s[s]]]); // uses only the regions included for a given species to calculation the means
 
-  // Find slope values I'm after using the tracking matrix 
-  // for every species, cycle through the regions that species is found in and pull out the slopevalues?
-  vector[nreg] b_time_vect[nspecies];
-  vector[nreg] b_space_vect[nspecies];
-    
-for(s in 1:nspecies){
-  
-  vector[nreg] b_time_index;  // 
-  
-  for(i in 1:nreg_s[s]){
-    
-    b_time_index[i] = b[1, s, sp_reg_mat[s,i]];
   }
   
-  b_time_vect[s,] = b_time_index; // store slope values for comparison regions in a nspecies-long vector 
-  
-}
-  
-    // Repeat for space slope
-for(s in 1:nspecies){
-  
-  vector[nreg] b_space_index;  // 
-  
-  for(i in 1:nreg_s[s]){
+
+  for(g in 1:nreg){
+     for(s in 1:nspecies){
+       if(sp_reg_inclusion[s,g] == 1){
+         b_dif_reg[s,g] = b_time[s,g]-b_space[s,g];
+       }else{
+         b_dif_reg[s,g] = 0;
+       }
+       
+     }
     
-    b_space_index[i] = b[2, s, sp_reg_mat[s,i]];
+
+    b_dif_reg_mean[g] = mean(b_dif_reg[reg_sp_mat[g, 1:nsp_r[g]], g]); // uses only the species in that region to calcualte means
   }
   
-  b_space_vect[s,] = b_space_index; // store slope values for comparison regions in a nspecies-long vector 
-  
-}
+
+
   
 
   // Y_rep for prior predictive check
   for(i in 1:ncounts){
   y_rep[i] = poisson_log_rng(a[species[i], reg[i]] + b_time[species[i], reg[i]] * time[i] * pforest[i] + b_space[species[i], reg[i]] * space[i] * pforest[i] + obs_offset[obs[i]] + noise[i]);
   }
+  
 }
