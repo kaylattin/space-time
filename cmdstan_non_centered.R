@@ -9,14 +9,9 @@ rm(list = ls())
 gc()
 
 
-d <- read.csv("whole_dataset_over40_ND.csv")
+d <- read.csv("whole_dataset_over40_D.csv")
 d_obs <- read.csv("observer_dataset_over40_ND.csv")
 n_distinct(d$SpeciesRegion)
-
-### cut down dataset to test (first 4 comparison regions)
-d <- d %>% filter(Region %in% c(1,2,3,4,5))
-d_obs <- d_obs %>% filter(ObsN %in% d$ObsN)
-
 
 
 ## counts of species per region
@@ -90,9 +85,9 @@ mod <- cmdstan_model(file, pedantic = TRUE)
 # run the model --------------
 fit <- mod$sample(
   data = d_slim,
-  chains = 2,
-  iter_warmup = 500,
-  iter_sampling = 1000,
+  chains = 3,
+  iter_warmup = 1000,
+  iter_sampling = 2000,
   parallel_chains = 2,
   max_treedepth = 12,
   adapt_delta = 0.99,
@@ -101,7 +96,7 @@ fit <- mod$sample(
   output_dir = "~/space-time/cmdstan_output_files/"
 )
 
-fit$save_object(file = "march4_test_0.RDS")
+fit$save_object(file = "march5_species_abundance_nd.RDS")
 fit$cmdstan_diagnose()
 
 
@@ -109,8 +104,8 @@ fit$cmdstan_diagnose()
 summary <- fit$cmdstan_summary(pars = c())
 
 # create a stanfit S4 object 
-stanfit <- rstan::read_stan_csv(fit$output_files())
-save(stanfit, file =  "march4_test0_stanfit.RDS")
+stanfit <- rstan::read_stan_csv(march4_test_0$output_files())
+save(stanfit, file =  "march5_species_abundance_nd.RDS")
 
 # load up in shinystan for convergence diagnostics & posterior predictive / assumptions
 shinyfit <- as.shinystan(stanfit)
@@ -120,6 +115,7 @@ launch_shinystan(shinyfit)
 # posterior predictive check
 y_rep <- as.matrix(stanfit, pars = "y_rep")
 ppc_dens_overlay(y = d$Count, yrep = y_rep)
+y <- d$Count
 
 
 
@@ -147,106 +143,164 @@ bsl = function(y,x){
 }
 
 
+nspecies = 17
+nregions = 5
+niterations = 2000
+
+# estimate of the slope across all species in a given region
+for(r in 1:nregions){
+  for (i in 1:niterations){
+    
+    mlm = lm(b_time[i, reg_sp_mat[r,1:nspecies], r] ~ b_space[i, reg_sp_mat[r, 1:nspecies], r])
+    
+    intercept_by_r[i,r] = mlm$coefficients[[1]]
+    slope_by_r[i,r] = mlm$coefficients[[2]]
+
+   
+  }
+  
+  # summarize across all iterations
+  mean_intercept_by_r[r] = mean(intercept_by_r[,r])
+  
+  mean_slope_by_r[r] = mean(slope_by_r[,r])
+  
+
+}
+
+
+
+# estimate of the slope across regions for a given species
+for(s in 1:nspecies){
+  for (i in 1:niterations){
+    
+    mlm = lm(b_time[i, s, sp_reg_mat[s, 1:nregions]] ~ b_space[i, s, sp_reg_mat[s, 1:nregions]])
+    
+    intercept_by_s[i, s] = mlm$coefficients[[1]]
+    slope_by_s[i, s] = mlm$coefficients[[2]]
+    
+    
+  }
+  
+  # summarize across all iterations
+  mean_intercept_by_s[s] = mean(intercept_by_s[,s])
+  
+  mean_slope_by_s[s] = mean(slope_by_s[,s])
+  
+  
+}
+
+
+
+## summarize across the 2 biomes
+
 biome <- read.csv("forest_biome_input.csv")
-
-space_vs_time <- vector("list")
-slope_list <- vector("list")
-
-species = 23
-nreg = 4
-niter = 1000
-
 
 # how many species and regions in eastern forests?
 east_forest <- biome %>% filter(biome == 1)
 
-d_1 <- d %>% filter(Region %in% east_forest$region)
+d_east <- d %>% filter(Region %in% east_forest$region)
 
-species_1 <- d_1 %>% distinct(Species)
-reg_1 <- d_1 %>% distinct(Region)
+reg_east <- d_east %>% distinct(Region)
+nregions_east <- reg_east %>% n_distinct(Region)
 
-nspecies_1 <- species_1 %>% n_distinct(Species)
-nreg_1 <- reg_1 %>% n_distinct(Region)
+# estimate of the slope across all species in a given region
+for(r in reg_east){
+  for (i in 1:niterations){
+    
+    mlm = lm(b_time[i, reg_sp_mat[r,1:nspecies], r] ~ b_space[i, reg_sp_mat[r, 1:nspecies], r])
+    
+    intercept_by_r_east[i,r] = mlm$coefficients[[1]]
+    slope_by_r_east[i,r] = mlm$coefficients[[2]]
+    
+    
+  }
+  
+  # summarize across all iterations
+  mean_intercept_by_r_east[r] = mean(intercept_by_r_east[,r])
+  
+  mean_slope_by_r_east[r] = mean(slope_by_r_east[,r])
+  
+  
+}
+
+
+species_east <- d_east %>% distinct(Species)
+
+nspecies_east <- species_east %>% n_distinct(Species)
+
+# estimate of the slope across regions for a given species
+for(s in species_east){
+  for (i in 1:niterations){
+    
+    mlm = lm(b_time[i, s, sp_reg_mat_east[s, 1:nregions]] ~ b_space[i, s, sp_reg_mat_east[s, 1:nregions]])
+    
+    intercept_by_s_east[i, s] = mlm$coefficients[[1]]
+    slope_by_s_east[i, s] = mlm$coefficients[[2]]
+    
+    
+  }
+  
+  # summarize across all iterations
+  mean_intercept_by_s[s] = mean(intercept_by_s_east[,s])
+  
+  mean_slope_by_s[s] = mean(slope_by_s_east[,s])
+  
+  
+}
+
 
 
 # how many species and regions in northwestern mountains?
-west_mount <- biome %>% filter(biome == 2)
+west_forest <- biome %>% filter(biome == 1)
 
-d_2 <- d %>% filter(Region %in% west_mount$region)
+d_west <- d %>% filter(Region %in% west_forest$region)
 
-species_2 <- d_2 %>% distinct(Species)
-reg_2 <- d_2 %>% distinct(Region)
+reg_west <- d_west %>% distinct(Region)
+nregions_west <- reg_west %>% n_distinct(Region)
 
-nspecies_2 <- species_2 %>% n_distinct(Species)
-nreg_2 <- reg_2 %>% n_distinct(Region)
-
-
-# initialize empty lists & arrays
-xx <- array(numeric(), c(niter, nspecies, nreg))
-yy <- array(numeric(), c(niter, nspecies, nreg))
-
-
-xx_1 <- array(numeric(), c(niter, nspecies_1, nreg_1))
-yy_1 <- array(numeric(), c(niter, nspecies_1, nreg_1))
-
-
-
-xx_2 <- array(numeric(), c(niter, nspecies_2, nreg_2))
-yy_2 <- array(numeric(), c(niter, nspecies_2, nreg_2))
-
-
-mlm <- rep(list(list()), nspecies)
-mlm_1 <- rep(list(list()), nspecies_1)
-mlm_2 <- rep(list(list()), nspecies_2)
-
-
-
-# extract for each species-reg combo
- for(s in 1:nspecies){
+# estimate of the slope across all species in a given region
+for(r in reg_west){
+  for (i in 1:niterations){
     
-    for(g in 1:nreg){   
-      
-      
-      if(sp_reg_mat[s, g] == 1){
-        
-        # slopes for all biomes
-        xx[, s, g] = draws$b_space[, s, g]
-        yy[, s, g] = draws$b_time[, s, g]
-        
-        
-        mlm[[s]][[g]] = lm(yy[, s, g] ~ xx[, s, g])
-        
-        
-        # if region falls in EPA ecoregion 1 == eastern temperate forests
-        if(biome$biome[g] == 1){
-          
-          xx_1[, s, g] = draws$b_space[, s, g]
-          yy_1[, s, g] = draws$b_time[, s, g]
-          
-          
-          mlm_1[[s]][[g]] = lm(yy_1[, s, g] ~ xx_1[, s, g])
-          
-          # if region falls into ecoregion 2 == northwestern forested mountains
-        }else if(biome$biome[g] == 2){
-          
-          xx_2[, s, g] = draws$b_space[, s, g]
-          yy_2[, s, g] = draws$b_time[, s, g]
-          
-          
-          mlm_2[[s]][[g]] = lm(yy_1[, s, g] ~ xx_1[, s, g])
-          
-          
-        }
-        
-      }
-
-
-    }
+    mlm = lm(b_time[i, reg_sp_mat[r,1:nspecies], r] ~ b_space[i, reg_sp_mat[r, 1:nspecies], r])
+    
+    intercept_by_r_west[i,r] = mlm$coefficients[[1]]
+    slope_by_r_west[i,r] = mlm$coefficients[[2]]
+    
     
   }
+  
+  # summarize across all iterations
+  mean_intercept_by_r_west[r] = mean(intercept_by_r_west[,r])
+  
+  mean_slope_by_r_west[r] = mean(slope_by_r_west[,r])
+  
+  
+}
 
 
-# mlm is an nspecies list of nreg lists, so each species-reg combo has an mlm output
-# calculated from the niterations of space and time
-# so each mlm[[s]][[g]]$coefficients[[2]] is a slope estimate 
-# distribution of slope estimates makes it possible to get the mean slope between time ~ space across all species-reg combos
+species_west <- d_west %>% distinct(Species)
+
+nspecies_west <- species_west %>% n_distinct(Species)
+
+# estimate of the slope across regions for a given species
+for(s in species_east){
+  for (i in 1:niterations){
+    
+    mlm = lm(b_time[i, s, sp_reg_mat_west[s, 1:nregions]] ~ b_space[i, s, sp_reg_mat_west[s, 1:nregions]])
+    
+    intercept_by_r_west[i, s] = mlm$coefficients[[1]]
+    slope_by_r_west[i, s] = mlm$coefficients[[2]]
+    
+    
+  }
+  
+  # summarize across all iterations
+  mean_intercept_by_s_west[s] = mean(intercept_by_s_west[,s])
+  
+  mean_slope_by_s_west[s] = mean(slope_by_s_west[,s])
+  
+  
+}
+
+
