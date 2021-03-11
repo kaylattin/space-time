@@ -6,7 +6,11 @@ setwd("~/space-time/final datasets")
 dat <- read.csv("whole_dataset_over40_D.csv")
 n_distinct(dat$ObsN)
 
-d <- d %>% filter(!ref == c("14410, 53063, 69057"))
+# remove the temporal sites that need to be excluded in order to match the ND dataset = 32 regions
+dat <- dat %>% filter(!ref == 14410)
+dat <- dat %>% filter(!ref == 53063)
+dat <- dat %>% filter(!ref == 69057)
+
 
 
 # dataset for total abundance at a transect
@@ -44,7 +48,7 @@ n_distinct(richness_obs$ObsN)
 
 diversity_obs <- obs %>% group_by(RouteNumber, Year, ObsN, Eco_ID, Obs_ID, Route_ID) %>%
   summarise(Hprime = diversity(Count, index = "shannon"))
-n_distinct(diversity$ObsN)
+n_distinct(diversity_obs$ObsN)
 
 write.csv(total_obs, "observer_dataset_ta.csv")
 write.csv(richness_obs, "observer_dataset_richness.csv")
