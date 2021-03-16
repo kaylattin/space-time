@@ -54,7 +54,7 @@ parameters {
   vector<lower=0>[nspecies] sigma_a;             // sd - variance of each species across reg - used to shrink toward mean species abundance
   
   vector[ncounts] noise;                        // Over-dispersion noise parameter
-  real<lower=0> sigma_n;                        // Variance for noise 
+  real<lower=0> sdnoise;                        // Variance for noise 
   
   matrix[nspecies, nreg] b_time_raw;              // z-score filled time slope estimates
   matrix[nspecies, nreg] b_space_raw;           // z-score filled space slope estimates
@@ -73,9 +73,9 @@ parameters {
   vector[nobs_obs] obs_offset;                  // Unique offset term for each observer to feed into main model
   vector[ncounts_obs] noise_obs;                // Over-dispersion term for observer sub-model
   
-  real<lower=0> sigma_n_obs;                    // Variance for noise
-  real<lower=0> sigma_e_obs;                    // Variance for ecoregion
-  real<lower=0> sigma_r_obs;                    // Variance for route
+  real<lower=0> sdnoise_obs;                    // Variance for noise
+  real<lower=0> sdeco_obs;                    // Variance for ecoregion
+  real<lower=0> sdrte_obs;                    // Variance for route
   
 }
 
@@ -84,9 +84,7 @@ transformed parameters{
   matrix[nspecies, nreg] b_time;
   matrix[nspecies, nreg] b_space;
 
- // non-centered parameterization for slope
- 
- 
+
  for(s in 1:nspecies){
    
    for(g in 1:nreg){
@@ -137,15 +135,15 @@ model {
   
   
 // OBSERVER SUB-MODEL
-sigma_n_obs ~ student_t(4, 0, 1);                 // prior for variances
-sigma_e_obs ~ student_t(4, 0, 1); 
-sigma_r_obs ~ student_t(4, 0, 1);
+sdnoise_obs ~ student_t(20, 0, 1);                 // prior for variances
+sdeco_obs ~ student_t(20, 0, 1); 
+sdrte_obs ~ student_t(20, 0, 1);
  
 species_effect ~ normal(0, 0.1);                // Prior for species effect - fixed
-route_effect ~ normal(0, sigma_r_obs);           // Prior for bbs route effect - random
-ecoreg_effect ~ normal(0, sigma_e_obs);          // Prior for ecoregion effect - random
-obs_offset ~ normal(0, 0.1);                    // Prior for observer offset - fixed
-noise_obs ~ normal(0, sigma_n_obs);              // Prior for over-dispersion term
+route_effect ~ normal(0, sdrte_obs);           // Prior for bbs route effect - random
+ecoreg_effect ~ normal(0, sdeco_obs);          // Prior for ecoregion effect - random
+obs_offset ~ normal(0, 0.1);                // Prior for observer offset - fixed
+noise_obs ~ normal(0, sdnoise_obs);              // Prior for over-dispersion term
  
    // likelihood
     for(k in 1:ncounts_obs) {
@@ -163,14 +161,14 @@ count_obs ~ poisson_log(lambda_obs);
    
    a_raw[s,] ~ std_normal();
    mu_a[s] ~ normal(0, 0.1);
-   sigma_a[s] ~ student_t(4,0,1);
+   sigma_a[s] ~ student_t(20,0,1);
    
    b_time_raw[s,] ~ std_normal(); // prior for uncentered raw slopes, Z-score variation among regions after accounting for species mean slope
-   sigma_time[s] ~ student_t(4, 0, 1);
+   sigma_time[s] ~ student_t(20, 0, 1);
    B_TIME[s] ~ normal(0, 0.1); // hyperprior for species mean slope
    
    b_space_raw[s,] ~ std_normal(); // space slope priors
-   sigma_space[s] ~ student_t(4, 0, 1);
+   sigma_space[s] ~ student_t(20, 0, 1);
    B_SPACE[s] ~ normal(0, 0.1);
    
    
@@ -178,8 +176,8 @@ count_obs ~ poisson_log(lambda_obs);
 
  
  
- sigma_n ~ student_t(4, 0, 1); // Prior for scale parameter for noise
- noise ~ normal(0, sigma_n);  // Prior for noise
+ sdnoise ~ student_t(20, 0, 1); // Prior for scale parameter for noise
+ noise ~ normal(0, sdnoise);  // Prior for noise
  
 
   

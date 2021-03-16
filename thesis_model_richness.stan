@@ -6,7 +6,9 @@ data {
   int<lower=1> ncounts;                        // Number of observations
   int<lower=1> nreg;                           // number of regions
   int<lower=1> nobs;                           // number of unique observers
+  int<lower=1> nst;
   
+  int<lower=0> spacetime[ncounts];
   int richness[ncounts];   // Species richness
   int<lower=0> space[ncounts];  // 0-1 indicator for space
   int<lower=0> time[ncounts];  // 0-1 indicator for time
@@ -35,6 +37,7 @@ data {
 }
 
 
+
 parameters {
 // MAIN MODEL
   vector[nreg] a_raw;   // intercept measuring mean total abundance in a given comparison region
@@ -44,6 +47,7 @@ parameters {
   vector[ncounts] noise;                        // Over-dispersion noise parameter
   real<lower=0> sigma_n;                        // Variance for noise 
   
+  
   vector[nreg] b_time_raw;              // z-score filled time slope estimates
   vector[nreg] b_space_raw;           // z-score filled space slope estimates
   vector<lower=0>[nreg] sigma_time;
@@ -51,6 +55,7 @@ parameters {
   vector[nreg] B_TIME;
   vector[nreg] B_SPACE;
   
+
 
   
 // OBSERVER SUB-MODEL
@@ -63,25 +68,26 @@ parameters {
   real<lower=0> sigma_n_obs;                    // Variance for noise
   real<lower=0> sigma_e_obs;                    // Variance for ecoregion
   real<lower=0> sigma_r_obs;                    // Variance for route
-  
+
 }
 
 transformed parameters{
   vector[nreg] a;
-  vector[nreg] b_time;
-  vector[nreg] b_space;
+  matrix[nst, nreg] b;
 
  // non-centered parameterization for slope
- for(g in 1:nreg){
-  b_time[g] =  B_TIME[g] + sigma_time[g] * b_time_raw[g];  
- 
-  b_space[g] = B_SPACE[g] + sigma_space[g] * b_space_raw[g];
+for( g in 1:nreg ){
+  b[1, g] = B_TIME[g] + sigma_time[g] * b_time_raw[g];  
 
- }
- 
- for(g in 1:nreg){
+
+  b[2, g] =  B_SPACE[g] + sigma_time[g] * b_space_raw[g];  
+
+}
+
 
 // non-centered parameterization for intercept
+
+for( g in 1:nreg ) {
   a[g] = mu_a[g] + sigma_a[g] * a_raw[g];
 
 }
@@ -94,9 +100,9 @@ model {
   
   
 // OBSERVER SUB-MODEL
-sigma_n_obs ~ student_t(4, 0, 1);                 // prior for variances
-sigma_e_obs ~ student_t(4, 0, 1); 
-sigma_r_obs ~ student_t(4, 0, 1);
+sigma_n_obs ~ student_t(20, 0, 1);                 // prior for variances
+sigma_e_obs ~ student_t(20, 0, 1); 
+sigma_r_obs ~ student_t(20, 0, 1);
  
 route_effect ~ normal(0, sigma_r_obs);           // Prior for bbs route effect - random
 ecoreg_effect ~ normal(0, sigma_e_obs);          // Prior for ecoregion effect - random
@@ -118,14 +124,14 @@ richness_obs ~ poisson_log(lambda_obs);
 
    a_raw ~ std_normal();
    mu_a ~ normal(0, 0.1);
-   sigma_a ~ student_t(4,0,1);
+   sigma_a ~ student_t(20,0,1);
    
    b_time_raw ~ std_normal(); // prior for uncentered raw slopes, Z-score variation among regions after accounting for species mean slope
-   sigma_time ~ student_t(4, 0, 1);
+   sigma_time ~ student_t(20, 0, 1);
    B_TIME ~ normal(0, 0.1); // hyperprior for species mean slope
    
    b_space_raw ~ std_normal(); // space slope priors
-   sigma_space ~ student_t(4, 0, 1);
+   sigma_space ~ student_t(20, 0, 1);
    B_SPACE ~ normal(0, 0.1);
 
 
@@ -138,7 +144,7 @@ richness_obs ~ poisson_log(lambda_obs);
   // likelihood
     for(i in 1:ncounts) {
       
-    lambda[i] = a[reg[i]] + b_time[reg[i]] * time[i] * pforest[i] + b_space[reg[i]] * space[i] * pforest[i] + obs_offset[obs[i]] + noise[i];
+    lambda[i] = a[reg[i]] + b[spacetime[i], reg[i]] * pforest[i] + obs_offset[obs[i]] + noise[i];
     }
     
 richness ~ poisson_log(lambda);          
@@ -147,17 +153,17 @@ richness ~ poisson_log(lambda);
 
 generated quantities{
   int<lower=0> y_rep[ncounts];
-    
+  
   vector[nreg]  b_dif_rg;
 
      for(g in 1:nreg){
-         b_dif_rg[g] = b_time[g]-b_space[g];
+         b_dif_rg[g] = b[1, g]-b[2, g];
      }
   
 
 
   // Y_rep for prior predictive check
   for(i in 1:ncounts){
-  y_rep[i] = poisson_log_rng(a[reg[i]] + b_time[reg[i]] * time[i] * pforest[i] + b_space[reg[i]] * space[i] * pforest[i] + obs_offset[obs[i]] + noise[i]);
+  y_rep[i] = poisson_log_rng(a[reg[i]] + b[spacetime[i], reg[i]] * pforest[i] + obs_offset[obs[i]] + noise[i]);
   }
 }

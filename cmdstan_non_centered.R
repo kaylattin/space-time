@@ -100,23 +100,31 @@ fit <- mod$sample(
   iter_warmup = 1000,
   iter_sampling = 2000,
   parallel_chains = 2,
-  max_treedepth = 12,
-  adapt_delta = 0.99,
+  max_treedepth = 18,
+  adapt_delta = 0.999,
   show_messages = TRUE,
+  step_size = 0.5,
   init = 0.1,
   output_dir = "~/space-time/cmdstan_output_files/"
 )
 
-fit$save_object(file = "march5_species_abundance_nd.RDS")
+
+fit$save_object(file = "v2_species_abundance_nd.RDS")
 fit$cmdstan_diagnose()
 
+
+files <- c("~/space-time/cmdstan_output_files/thesis_model-202103111258-1-80b20a.csv",
+           "~/space-time/cmdstan_output_files/thesis_model-202103111258-2-80b20a.csv",
+           "~/space-time/cmdstan_output_files/thesis_model-202103111258-3-80b20a.csv")
 
 # quick summary
 summary <- fit$cmdstan_summary(pars = c())
 
 # create a stanfit S4 object 
-stanfit <- rstan::read_stan_csv(fit$output_files())
-save(stanfit, file =  "march5_species_abundance_nd.RData")
+stanfit <- rstan::read_stan_csv(csvfiles = files)
+save(stanfit, file =  "v2_species_abundance_nd.RData")
+
+save(stanfit, file =  "v2_species_abundance_nd_compress.RData", compress="xz")
 
 # load up in shinystan for convergence diagnostics & posterior predictive / assumptions
 shinyfit <- as.shinystan(stanfit)
@@ -141,6 +149,24 @@ y <- print(b_time$summary[1:1344])
 plot(x, y)
 
 
+# correlation coefficient
+function (y,x){
+  
+  n = length(x)
+  sy = sum(y)
+  sx = sum(x)
+  ssx = sum(x^2)
+  sxy = sum(y*x)
+  
+  xsq = x^2
+  sxsq = sx^2
+  
+  ysq = y^2
+  sysq = sy^2
+  
+  r = (n*sxy - (sx * sy)) / sqrt((n*sum(xsq) - sxsq) * (n*sum(ysq) - sysq))
+  
+}
   
 # for each species-reg index, calculate:
 bsl = function(y,x){
