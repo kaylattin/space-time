@@ -165,6 +165,6 @@ ta
 
 
 all <- ggarrange(richness, ta, shannon, 
-                 labels = c("A", "B", "C"),
+                 labels = c("richness", "tot abund", "diversity"),
                  ncol = 1, nrow = 3)
 all

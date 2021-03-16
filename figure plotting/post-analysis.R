@@ -5,6 +5,8 @@ library(cmdstanr)
 library(shinystan)
 library(rstan)
 library(ggpubr)
+library(bayesplot)
+
 rm(list = ls())
 gc()
 
@@ -64,6 +66,12 @@ save(draws, file = "species_abund_draws.RData")
 b_space <- summary(stanfit, pars = "b_space")
 b_time <- summary(stanfit, pars = "b_time")
 a <- summary(stanfit, pars = "a")
+b_dif <- 
+
+
+
+
+
 
 
 #########################
@@ -452,7 +460,7 @@ f_both <- ggarrange(f_east_sp, f_east_reg, f_west_sp, f_west_reg,
 f_both
 
 ggsave("species_abundance_ECOREGIONS.png", device = "png", plot = f_both,
-       width = 20, height = 30, units = "cm")
+       width = 40, height = 30, units = "cm")
 
 
 
