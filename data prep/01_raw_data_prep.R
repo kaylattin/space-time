@@ -1,4 +1,4 @@
-setwd("/Users/kayla/Documents/thesis_data/bbs")
+setwd("/Users/kayla/Documents/space-time/data prep")
 
 library(tidyverse)
 
@@ -119,16 +119,19 @@ write.csv(df, "canada_us_bbs.csv")
 # ------------------------#
 
 #### FOREST COVER --------------------------------------------------------------------------------------------------------
+df <- read.csv("canada_us_bbs.csv")
+
+
 # obtained from extracting % mean forest cover from GFC forest layers in each transect
-forestcover <- read.csv("forestcover_master.csv", header=T, check.names = FALSE)
+forestcover <- read.csv("forestcover_master_mar2021.csv", header=T, check.names = FALSE)
 
 change <- forestcover %>% select(rte, change)
-cover <- select(forestcover, -c(change))
+cover <- dplyr::select(forestcover, -c(change))
 
 # reformat to long
 forest_long <- reshape(cover, v.names="Forest cover", varying = 2:21, timevar="Year", times=names(cover)[2:21],direction='long')
 forest_long$Transect <- paste(forest_long$rte, forest_long$Year, sep=".")
-forest_long <- select(forest_long, -c(rte, Year, id))
+forest_long <- dplyr::select(forest_long, -c(rte, Year, id))
 
 ddf <- merge(df, forest_long, by = "Transect")
 
@@ -149,8 +152,8 @@ obs$placeholder <- paste(obs$StateNum, obs$Route, sep=".")
 
 # Create another df to get a list of unique Route & StateNum's
 r <- distinct(obs, StateNum, Route, .keep_all = TRUE)
-r <- select(r, -c(5:21))
-r <- select(r, -2)
+r <- dplyr::select(r, -c(5:21))
+r <- dplyr::select(r, -2)
 
 # Convert Route to a RouteNum that combines State/Province number and the individual Route within the state
 # i.e. Statenum = 04 and Route = 001 becomes RouteNumber = 4001
@@ -172,13 +175,13 @@ for(i in 1:nrows) {
 }
 
 
-r <- select(r, -c(RouteDataID, StateNum, Route, RunType))
+r <- dplyr::select(r, -c(RouteDataID, StateNum, Route, RunType))
 obs <- merge(obs, r, by = "placeholder", all.x = FALSE)
 obs$Transect <- paste(obs$RouteNumber, obs$Year, sep=".")
-obs_clean <- obs %>% filter(Year >= 2000) %>% select(c(Transect, ObsN, StartWind, RunType))
+obs_clean <- obs %>% filter(Year >= 2000) %>% dplyr::select(c(Transect, ObsN, StartWind, RunType))
 obs_clean <- obs_clean[!duplicated(obs_clean$Transect), ]
 
-ddf <- merge(ddf, obs_clean, by = "Transect", all.x = FALSE)
+dddf <- merge(ddf, obs_clean, by = "Transect", all.x = FALSE)
 
-write.csv(ddf, "clean_bbs_dataset.csv")
+write.csv(dddf, "clean_bbs_dataset_mar2021.csv")
 

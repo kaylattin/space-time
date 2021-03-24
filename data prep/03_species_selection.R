@@ -2,10 +2,10 @@ library(tidyverse)
 library(openxlsx)
 library(readxl)
 setwd("~/space-time/data prep")
-spatial <- read.csv("spatial_dataset_5p.csv")
-temporal <- read.csv("temporal_dataset_5p.csv")
+spatial <- read.csv("spatial_dataset_mar2021_200km.csv")
+temporal <- read.csv("temporal_dataset_mar2021_200km.csv")
 forestcodes <- read.csv("forestcodes.csv", header = T)
-forestcodes <- forestcodes %>% select(English_Common_Name, status_forest) %>% distinct(English_Common_Name, status_forest)
+forestcodes <- forestcodes %>% dplyr::select(English_Common_Name, status_forest) %>% distinct(English_Common_Name, status_forest)
 bbl <- read.csv("bbl_codes.csv") # had to make manual changes to YRWA, DEJU in Excel as well as add Sooty Grouse, Ruffed Grouse, Northern Bobwhite 
 # since BBL doesn't provide codes for gallinaceous birds
 
@@ -14,10 +14,11 @@ bbl <- read.csv("bbl_codes.csv") # had to make manual changes to YRWA, DEJU in E
 
 # some prep - removing spatial & temporal sites that have <10 spatial matches or bbs years
 # leaves me with 40 regions!
-remove <- c(4078, 11256, 4116, 4141, 6073, 11057, 11234, 11407, 14410, 14013, 14018, 14130, 14132, 14136, 14156, 14186, 81050, 68373, 53900)
+remove <- as.vector(unlist(read.delim("remove_list.txt", header = F)))
 spatial <- spatial %>% filter(!ref %in% remove)
 
 temporal <- temporal %>% filter(!ref %in% remove)
+
 
 # ------------------------------------#
 #    MATCH SPECIES IN SPACE & TIME    |
@@ -29,7 +30,7 @@ summarise_at(vars(Count),list(Count = sum))
 s.species <- filter(s.species, !Count == 0)
 # Filter for forest birds only
 s.species <- merge(s.species, forestcodes, by = "English_Common_Name", all.x = TRUE)
-s.species <- s.species %>% filter(status_forest == "F") %>% select(-status_forest, -Count)
+s.species <- s.species %>% filter(status_forest == "F") %>% dplyr::select(-status_forest, -Count)
 
 
 # Find species that are not present at ANY of the temporal sites
@@ -38,7 +39,7 @@ t.species <- temporal %>% group_by(English_Common_Name) %>%
 t.species <- filter(t.species, !Count == 0)
 # Filter for forest birds only
 t.species <- merge(t.species, forestcodes, by = "English_Common_Name", all.x = TRUE)
-t.species <- t.species %>% filter(status_forest == "F") %>% select(-status_forest, -Count)
+t.species <- t.species %>% filter(status_forest == "F") %>% dplyr::select(-status_forest, -Count)
 
 
 # nspecies in spatial = 167, nspecies in temporal = 164 (before filtering for forest)
@@ -70,11 +71,11 @@ data$SpeciesRegion <- paste(data$BBL, data$Region, sep = "")
 
 
 ### GENERATING THE NO-DUPLICATES DATASET --- requires manual labour in Excel before continuing!!!!
-# get the list of species present in each temporal site (across years) - similar format to the spatial site lists in 02_site_selection
+# get the list of species present in each temporal site (across years) - similar format to the spatial site lists in 02_site_dplyr::selection
 t_species <- vector("list")
 t_sites <- as.vector(unlist(temporal %>% distinct(RouteNumber)))
 
-for(i in 1:34) {
+for(i in 1:49) {
   temp <- temporal_new %>% filter(RouteNumber == t_sites[i])
 
   t_species[i] <- temp %>% distinct(BBL)
@@ -82,8 +83,8 @@ for(i in 1:34) {
 }
 
 
-n <- 53 # max number of species in a given temporal site (check)
-for(i in 1:34){
+n <- 51 # max number of species in a given temporal site (check)
+for(i in 1:49){
   df <- unlist(t_species[[i]])
   length(df) <- n
   
@@ -95,11 +96,11 @@ species_lists <- mapply(cbind, t_species)
 colnames(species_lists) <- t_sites
 
 # export the list - use in Excel to make decisions
-write.csv(species_lists, "temp_species_lists.csv")
+write.csv(species_lists, "temp_species_lists_mar2021_200km.csv")
 
 ## to get a long-format list that can be searchable in excel
 t_species <- vector("list")
-for(i in 1:34) {
+for(i in 1:49) {
   temp <- temporal_new %>% filter(RouteNumber == t_sites[i])
   temp <- temp %>% distinct(BBL)
   ref <- t_sites[i]
@@ -113,7 +114,7 @@ for(i in 1:34) {
 species_list <- do.call("rbind", t_species)
 
 # export the list
-write.csv(species_list, "species_lists_long_raw.csv")
+write.csv(species_list, "species_lists_long_raw_mar2021_200km.csv")
 
 
 
@@ -138,17 +139,17 @@ routes <- as.vector(unlist(rt))
 species <- sort(species)
 
 
-write.csv(routes, "routes_duplicated_feb25.csv")
-write.csv(species, "species_feb25.csv")
+write.csv(routes, "routes_duplicated_mar2021_200km.csv")
+write.csv(species, "species_mar2021_200km.csv")
 
 
 # create an empty matrix
-mat <- matrix(nrow = 134, ncol = 220)
+mat <- matrix(nrow = 124, ncol = 193)
 
-for( i in 1:220 ){
+for( i in 1:193 ){
   f <- data %>% filter(RouteNumber == routes[i])
   
-  for( n in 1:134 ) {
+  for( n in 1:124 ) {
     if( species[n] %in% f$BBL == TRUE ) {
       
       mat[n, i] <- 1
@@ -166,7 +167,7 @@ for( i in 1:220 ){
 }
 
 
-write.csv(mat, "species_in_each_route_MASTER_FEB25.csv")
+write.csv(mat, "species_in_each_route_MASTER_MAR2021_200km.csv")
 
 # note some Excel work will need to be done to set this up - copy & paste species list into a workbook
 # copy and transpose -> horizontal the list of spatial sites
@@ -240,8 +241,8 @@ t.species <- temporal_new %>% group_by(BBL, Region) %>%
 t.species <- t.species[which(t.species$Count > 0),]
 s.species <- s.species[which(s.species$Count > 0),]
 
-t.species <- select(t.species, -Count)
-s.species <- select(s.species,  -Count)
+t.species <- dplyr::select(t.species, -Count)
+s.species <- dplyr::select(s.species,  -Count)
 
 # Find species present (Count > 0) in temporal years and spatial sites for each region
 for(i in 1:34) {
@@ -254,7 +255,7 @@ for(i in 1:34) {
 # Code to prep for unlisting to summary table
 for(i in 1:34){
   dummy <- species[[i]]
-  speciesv2[[i]] <- dummy %>% select(-Region)
+  speciesv2[[i]] <- dummy %>% dplyr::select(-Region)
   sp <- unlist(speciesv2[[i]])
   length(sp) <- 45
   
@@ -316,11 +317,11 @@ temporal_pc <- df_present %>% group_by(space.time, Region, SpeciesRegion) %>% su
 
 # Merge total route / year counts with present counts
 spatial_rcpc <- merge(spatial_rc, spatial_pc, by = "Region")
-spatial_rcpc <- select(spatial_rcpc, -c(space.time.x, space.time.y, Region))
+spatial_rcpc <- dplyr::select(spatial_rcpc, -c(space.time.x, space.time.y, Region))
 spatial_rcpc$Prop.Spatial <- (spatial_rcpc$SpatialPresent) / (spatial_rcpc$RouteCount)
 
 temporal_rcpc <- merge(temporal_rc, temporal_pc, by = "Region")
-temporal_rcpc <- select(temporal_rcpc, -c(space.time.x, space.time.y, Region))
+temporal_rcpc <- dplyr::select(temporal_rcpc, -c(space.time.x, space.time.y, Region))
 temporal_rcpc$Prop.Temporal <- (temporal_rcpc$TemporalPresent / temporal_rcpc$YearCount)
 
 rcpc <- merge(spatial_rcpc, temporal_rcpc, by = "SpeciesRegion")
@@ -371,7 +372,7 @@ for(i in 1:nrows){
 
 
 #write.csv(rcpc, "species_prop40_to_10.csv")
-rcpc_new <- select(rcpc, c(SpeciesRegion, over10, over40, over30, over20))
+rcpc_new <- dplyr::select(rcpc, c(SpeciesRegion, over10, over40, over30, over20))
 
 
 # split the og dataframe again into spatial and temporal
