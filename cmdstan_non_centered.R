@@ -9,9 +9,9 @@ rm(list = ls())
 gc()
 
 
-d <- read.csv("whole_dataset_over40_ND.csv")
-d_obs <- read.csv("observer_dataset_over40_ND.csv")
-n_distinct(d$SpeciesRegion)
+d <- read.csv("whole_dataset_ND_version4.csv")
+d_obs <- read.csv("observer_dataset_ND_version4.csv")
+n_distinct(d$BBL)
 d$Species <- as.integer(as.factor(d$BBL))
 
 ## counts of species per region
@@ -34,11 +34,11 @@ d$time[which(d$time == 1)] <- 1
 ### create an indicator ragged array that determines which species are present at which regions
 # and which regions a species is found in, in both east and west (for a priori calculations)
 # it is nreg x nspecies wide
-sp_reg_mat <- as.matrix(read.csv("sp_reg_mat_nd.csv", header = F))
-sp_reg_mat_east <- as.matrix(read.csv("sp_reg_mat_east.csv", header = F))
-sp_reg_mat_west <- as.matrix(read.csv("sp_reg_mat_west.csv", header = F))
+sp_reg_mat <- as.matrix(read.csv("species_reg_matrix.csv", header = F))
+#sp_reg_mat_east <- as.matrix(read.csv("sp_reg_mat_east.csv", header = F))
+#sp_reg_mat_west <- as.matrix(read.csv("sp_reg_mat_west.csv", header = F))
 
-reg_sp_mat <- as.matrix(read.csv("reg_sp_mat_nd.csv", header = F))
+reg_sp_mat <- as.matrix(read.csv("region_sp_matrix.csv", header = F))
 
 
 # create a 0-1 indicator array for species in certain regions
@@ -56,6 +56,7 @@ d_slim <- list(
   nspecies = length(unique(d$BBL)),
   nreg = length(unique(d$ref)),
   nobs = length(unique(d$ObsN)),
+  nst = 2,
   
   nreg_s = summ_r$nreg,
   nsp_r = summ_s$nsp,
@@ -66,6 +67,7 @@ d_slim <- list(
   count = d$Count,
   space = d$space,
   time = d$time,
+  spacetime = d$space.time,
   species = d$Species,
   reg = d$Region,
   pforest = as.vector(scale(d$Forest.cover)), # standardized
@@ -96,20 +98,20 @@ mod <- cmdstan_model(file, pedantic = TRUE)
 # run the model --------------
 fit <- mod$sample(
   data = d_slim,
-  chains = 3,
+  chains = 4,
   iter_warmup = 1000,
   iter_sampling = 2000,
   parallel_chains = 2,
   max_treedepth = 18,
   adapt_delta = 0.999,
   show_messages = TRUE,
-  step_size = 0.5,
+  step_size = 0.01,
   init = 0.1,
   output_dir = "~/space-time/cmdstan_output_files/"
 )
 
 
-fit$save_object(file = "v2_species_abundance_nd.RDS")
+fit$save_object(file = "main_model.RDS")
 fit$cmdstan_diagnose()
 
 
@@ -121,10 +123,10 @@ files <- c("~/space-time/cmdstan_output_files/thesis_model-202103111258-1-80b20a
 summary <- fit$cmdstan_summary(pars = c())
 
 # create a stanfit S4 object 
-stanfit <- rstan::read_stan_csv(csvfiles = files)
-save(stanfit, file =  "v2_species_abundance_nd.RData")
+stanfit <- rstan::read_stan_csv(fit$output_files())
+save(stanfit, file =  "main_model_mar31.RData")
 
-save(stanfit, file =  "v2_species_abundance_nd_compress.RData", compress="xz")
+y <- d$Count
 
 # load up in shinystan for convergence diagnostics & posterior predictive / assumptions
 shinyfit <- as.shinystan(stanfit)
@@ -136,7 +138,10 @@ y_rep <- as.matrix(stanfit, pars = "y_rep")
 ppc_dens_overlay(y = d$Count, yrep = y_rep)
 y <- d$Count
 
+b_space_mean_rg <- summary(stanfit, pars = "b_space_mean_rg")
+b_time_mean_rg <-summary(stanfit, pars = "b_time_mean_rg")
 
+a_space
 
 ## 2nd stage - a priori calculation of space vs. time slopes --------------
 draws <- rstan::extract(stanfit, pars = c("a", "b_space", "b_time", "B_TIME", "B_SPACE"))

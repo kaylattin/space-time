@@ -3,8 +3,8 @@ library(vegan)
 library(openxlsx)
 library(readxl)
 setwd("~/space-time/data prep")
-spatial <- read.csv("spatial_dataset_mar2021_200km.csv")
-temporal <- read.csv("temporal_dataset_mar2021_200km.csv")
+spatial <- read.csv("spatial_dataset_mar2021_version4.csv")
+temporal <- read.csv("temporal_dataset_mar2021_version4.csv")
 forestcodes <- read.csv("forestcodes.csv", header = T)
 forestcodes <- forestcodes %>% dplyr::select(English_Common_Name, status_forest) %>% distinct(English_Common_Name, status_forest)
 bbl <- read.csv("bbl_codes.csv") # had to make manual changes to YRWA, DEJU in Excel as well as add Sooty Grouse, Ruffed Grouse, Northern Bobwhite 
@@ -15,10 +15,9 @@ bbl <- read.csv("bbl_codes.csv") # had to make manual changes to YRWA, DEJU in E
 
 # some prep - removing spatial & temporal sites that have <10 spatial matches or bbs years
 # leaves me with 40 regions!
-remove <- as.vector(unlist(read.delim("remove_list.txt", header = F)))
-spatial <- spatial %>% filter(!ref %in% remove)
+spatial <- spatial %>% filter(!ref == 89909)
 
-temporal <- temporal %>% filter(!ref %in% remove)
+temporal <- temporal %>% filter(!ref == 89909)
 
 nreg <- n_distinct(temporal$ref)
 
@@ -52,20 +51,26 @@ diversity <- d %>% group_by(space.time, ref, Transect, RouteNumber, Year, ObsN, 
   summarise(Hprime = diversity(Count, index = "shannon"))
 n_distinct(diversity$ObsN)
 
-write.csv(total, "whole_dataset_ta_mar2021_200km.csv")
-write.csv(richness, "whole_dataset_richness_mar2021_200km.csv")
-write.csv(diversity, "whole_dataset_diversity_mar2021_200km.csv")
-
-
-trial <- d %>% 
+write.csv(total, "whole_dataset_ta_mar2021_version4.csv")
+write.csv(richness, "whole_dataset_richness_mar2021_version4.csv")
+write.csv(diversity, "whole_dataset_diversity_mar2021_version4.csv")
 
 
 
 
-### OBSERVER DATASET
-obs <- read.csv("observer_dataset_over40_D.csv")
+dat <- read.csv("clean_bbs_dataset_mar2021.csv")
+dat <- merge(dat, bbl, by = "English_Common_Name", all.x = TRUE)
+
+obs <- dat %>% filter(ObsN %in% d$ObsN)
+
+obs$Obs_ID <- as.integer(as.factor(obs$ObsN))
+obs$Route_ID <- as.integer(as.factor(obs$RouteNumber))
+obs$Eco_ID <- as.integer(as.factor(obs$Ecoregion_L1Code))
+
+obs <- obs[!is.na(obs$Eco_ID),]
 n_distinct(obs$ObsN)
 
+### OBSERVER DATASET
 total_obs <- obs %>% group_by(RouteNumber, Year, ObsN, Eco_ID, Obs_ID, Route_ID ) %>%
   summarise(TotalAbundance = sum(Count))
 n_distinct(total_obs$ObsN)
@@ -79,9 +84,9 @@ diversity_obs <- obs %>% group_by(RouteNumber, Year, ObsN, Eco_ID, Obs_ID, Route
   summarise(Hprime = diversity(Count, index = "shannon"))
 n_distinct(diversity_obs$ObsN)
 
-write.csv(total_obs, "observer_dataset_ta.csv")
-write.csv(richness_obs, "observer_dataset_richness.csv")
-write.csv(diversity_obs, "observer_dataset_diversity.csv")
+write.csv(total_obs, "observer_dataset_ta_version4.csv")
+write.csv(richness_obs, "observer_dataset_richness_version4.csv")
+write.csv(diversity_obs, "observer_dataset_diversity_version.csv")
 
 
 

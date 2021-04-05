@@ -67,14 +67,20 @@ rtes$change <- rtes$firstcover - rtes$lastcover
 temporal_loss <- rtes[which(rtes$change >= 0.20), ]
 temporal_gain <- rtes[which(rtes$change <= -0.20),]
 
-temporal_loss$nyears <- temporal_loss$lastyear - temporal_loss$firstyear
-temporal_gain$nyears <- temporal_gain$lastyear - temporal_gain$firstyear
 
-temporal <- rbind(temporal_loss, temporal_gain)
-temporal <- temporal %>% filter(nyears >= 10)
+temporal_years <- d %>% filter(RouteNumber %in% temporal$RouteNumber)
+temporal_years <- temporal_years %>% group_by(RouteNumber) %>% summarize(nyears = n_distinct(Year))
+temporal_years <- temporal_years %>% filter(nyears >= 15)
+
+temporal_loss$range <- temporal_loss$lastyear - temporal_loss$firstyear
+temporal_gain$range <- temporal_gain$lastyear - temporal_gain$firstyear
 
 # select for sites with at least 10 years of data in the bbs
-temporal_loss <- temporal_loss %>% filter(nyears >= 10)
+temporal_loss <- temporal_loss %>% filter(range >= 18) %>% filter(RouteNumber %in% temporal_years$RouteNumber)
+temporal_gain <- temporal_gain %>% filter(range >= 18) %>% filter(RouteNumber %in% temporal_years$RouteNumber)
+
+
+temporal <- temporal_loss
 
 
 ## SPATIAL SITE SELECTION -------------------------------------------------------------------------------------
@@ -88,7 +94,7 @@ spEco.list <- vector("list")
 spEco.list <- vector("list")
 
 # Find lists of routes that are in the same ecoregion as each temporal route and fall within the same % forest cover range
-for(i in 1:92) {
+for(i in 1:28) {
   tempSite <- temporal_loss[i,]
   tempEco <- tempSite$Ecoregion_L1Code
   
@@ -98,21 +104,10 @@ for(i in 1:92) {
   
 }
 
-spEco.list_gain <- vector("list")
-
-for(i in 1:2) {
-  tempSite <- temporal_gain[i,]
-  tempEco <- tempSite$Ecoregion_L1Code
- 
-  spEco.list_gain[[paste(tempSite$RouteNumber)]] <- sp2019 %>% filter(Ecoregion_L1Code == tempEco) %>% filter(Forest.cover >= (tempSite$firstcover-0.05)) %>% filter(Forest.cover <= (tempSite$lastcover+0.05))
-  
-}
-
-spEco.list <- c(spEco.list, spEco.list_gain)
 
 
 sites <- temporal$RouteNumber
-write.csv(sites, "list_of_temporal_site.csv")
+write.csv(sites, "list_of_temporal_sites_version4.csv")
 
 
 
@@ -120,7 +115,7 @@ write.csv(sites, "list_of_temporal_site.csv")
 shpSF <- st_as_sf(shp)
 
 spDist.list <- vector("list")
-buff <- st_read("C:/Users/kayla/Documents/arcmap/2km_buffers_full94_mar2021.shp")
+buff <- st_read("C:/Users/kayla/Documents/arcmap/3km_buffers_full94_mar2021.shp")
 buff_sf <- st_as_sf(buff)
 
 for(i in sites){
@@ -144,9 +139,9 @@ for(i in sites){
   # F1nd spatial candidates that fall within the 300 km distance
   dist <- spShp[tempBuff,]
 
-  # plot(dist)
-  # plot(tempBuff, add=TRUE)
-  # mtext(paste(i))
+  plot(dist)
+  plot(tempBuff, add=TRUE)
+  mtext(paste(i))
   
   
   if(nrow(st_as_sf(dist)) > 0) {
@@ -171,11 +166,11 @@ sp.list <- vector("list")
 for(i in sites){
   dummy <- data.frame(spDist.list[[paste(i)]])
   
-  if(nrow(dummy) >= 10) {
+  if(nrow(dummy) >= 15) {
   dummy <- dummy$rteno
   }
   else{
-  dummy <- "less than 10!"
+  dummy <- "less than 15!"
   }
   
   sp.list[[paste(i)]] <- dummy
@@ -183,7 +178,7 @@ for(i in sites){
 
 
 # n = length of longest list in spDist.list (replace as needed if changing criteria above)
-n <- 35
+n <- 73
 for(i in sites){
   df <- unlist(sp.list[[paste(i)]])
   length(df) <- n
@@ -195,29 +190,28 @@ for(i in sites){
 
 # Cbind list of lists 
 final <- mapply(cbind, sp.list)
-write.csv(final, "spatial_candidates_mar2021_200km.csv")
+write.csv(final, "spatial_candidates_mar2021_version4.csv")
 
 
 # Long format
 final <- do.call("rbind", spDist.list)
 
-# These are the sites with <10 spatial site matches
-remove <- as.vector(unlist(read.delim("remove_list.txt", header = F)))
-final <- final %>% filter(!ref %in% remove)
-write.csv(final, "spatial_candidates_long_raw_mar2021_200km.csv")
+# These are the sites with <15 spatial site matches
+final <- final %>% filter(!ref == 89909)
+write.csv(final, "spatial_candidates_long_raw_mar2021_version4.csv")
 
 ### filter datasets
 spatial <- do.call("rbind", spDist.list)
 spatial$Transect <- paste(spatial$rteno, "2019", sep=".")
 spatial_merge <- base::merge(spatial, bbs, by = "Transect", all.x = FALSE)
 spatial_merge$space.time <- rep(2)
-write.csv(spatial_merge, "spatial_dataset_mar2021_200km.csv")
+write.csv(spatial_merge, "spatial_dataset_mar2021_version4.csv")
 
 
 temp <- temporal$RouteNumber
 temporal_f <- bbs %>% filter(RouteNumber %in% temp)
 temporal_f$space.time <- rep(1)
 
-write.csv(temporal_f, "temporal_dataset_mar2021_200km.csv")
+write.csv(temporal_f, "temporal_dataset_mar2021_version4.csv")
 
 

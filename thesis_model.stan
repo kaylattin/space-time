@@ -7,6 +7,7 @@
   int<lower=1> nspecies;                       // Number of species total across whole dataset
   int<lower=1> nreg;                           // number of regions
   int<lower=1> nobs;                           // number of unique observers
+  int<lower=1> nst;
 
 
   int<lower=0> sp_reg_inclusion[nspecies, nreg];   // matrix of 0-1 indicators
@@ -19,6 +20,7 @@
   int count[ncounts];                       // Species abundance count observations
   int<lower=0> space[ncounts];  // 0-1 indicator for space
   int<lower=0> time[ncounts];  // 0-1 indicator for time
+  int<lower=0> spacetime[ncounts];
   int species[ncounts];                     // Species 
   int reg[ncounts];                        // Regions
 
@@ -49,9 +51,14 @@
 
 parameters {
 // MAIN MODEL
-  matrix[nspecies, nreg] a_raw;                     // intercept measuring mean species abundance
-  vector[nspecies] mu_a;                         // hyperparameter on mean species abundance
-  vector<lower=0>[nspecies] sigma_a;             // sd - variance of each species across reg - used to shrink toward mean species abundance
+  matrix[nspecies, nreg] a_space_raw;                     // intercept measuring mean species abundance
+  vector[nspecies] mu_space_a;                         // hyperparameter on mean species abundance
+  vector<lower=0>[nspecies] sigma_space_a;             // sd - variance of each species across reg - used to shrink toward mean species abundance
+  
+  matrix[nspecies, nreg] a_time_raw;                     // intercept measuring mean species abundance
+  vector[nspecies] mu_time_a;                         // hyperparameter on mean species abundance
+  vector<lower=0>[nspecies] sigma_time_a;             // sd - variance of each species across reg - used to shrink toward mean species abundance
+  
   
   vector[ncounts] noise;                        // Over-dispersion noise parameter
   real<lower=0> sdnoise;                        // Variance for noise 
@@ -80,7 +87,9 @@ parameters {
 }
 
 transformed parameters{
-  matrix[nspecies, nreg] a;
+  matrix[nspecies, nreg] a_space;
+  matrix[nspecies, nreg] a_time;
+  matrix[nspecies, nreg] a[nst];
   matrix[nspecies, nreg] b_time;
   matrix[nspecies, nreg] b_space;
 
@@ -116,16 +125,23 @@ transformed parameters{
          // if species-reg combo exists in dataset, pool information across
       if(sp_reg_inclusion[s,g] == 1){
        
-      a[s,g] = a_raw[s,g] * sigma_a[s] + mu_a[s];
+      a_space[s,g] = a_space_raw[s,g] * sigma_space_a[s] + mu_space_a[s];
+      
+      a_time[s,g] = a_time_raw[s,g] * sigma_time_a[s] + mu_time_a[s];
       
       }else{
         
-        a[s,g] = 0;
-        
+        a_space[s,g] = 0;
+        a_time[s,g] = 0;      
         
       }
    }
  }
+ 
+ a[1, , ] = a_time;
+ a[2, , ] = a_space;
+ 
+ 
 }
 
 
@@ -159,9 +175,13 @@ count_obs ~ poisson_log(lambda_obs);
 
  for(s in 1:nspecies){
    
-   a_raw[s,] ~ std_normal();
-   mu_a[s] ~ normal(0, 0.1);
-   sigma_a[s] ~ student_t(20,0,1);
+   a_space_raw[s,] ~ std_normal();
+   mu_space_a[s] ~ normal(0, 0.1);
+   sigma_space_a[s] ~ student_t(20,0,1);
+   
+   a_time_raw[s,] ~ std_normal();
+   mu_time_a[s] ~ normal(0, 0.1);
+   sigma_time_a[s] ~ student_t(20,0,1);
    
    b_time_raw[s,] ~ std_normal(); // prior for uncentered raw slopes, Z-score variation among regions after accounting for species mean slope
    sigma_time[s] ~ student_t(20, 0, 1);
@@ -184,7 +204,7 @@ count_obs ~ poisson_log(lambda_obs);
   // likelihood
     for(i in 1:ncounts) {
       
-    lambda[i] = a[species[i], reg[i]] + b_time[species[i], reg[i]] * time[i] * pforest[i] + b_space[species[i], reg[i]] * space[i] * pforest[i] + obs_offset[obs[i]] + noise[i];
+    lambda[i] = a[spacetime[i], species[i], reg[i]] + b_time[species[i], reg[i]] * time[i] * pforest[i] + b_space[species[i], reg[i]] * space[i] * pforest[i] + obs_offset[obs[i]] + noise[i];
     }
     
 count ~ poisson_log(lambda);          
@@ -198,7 +218,24 @@ generated quantities{
   vector[nspecies] b_dif_sp_mean;
   matrix[nspecies, nreg] b_dif_reg;
   vector[nreg] b_dif_reg_mean;
-    
+  
+  
+  vector[nspecies] b_space_mean_sp;
+  vector[nreg] b_space_mean_rg;
+  vector[nspecies] b_time_mean_sp;
+  vector[nreg] b_time_mean_rg;
+
+  vector[nreg] a_space_mean_rg;
+  vector[nreg] a_time_mean_rg;
+  
+  
+  // Y_rep for prior predictive check
+  for(i in 1:ncounts){
+  y_rep[i] = poisson_log_rng(a[spacetime[i], species[i], reg[i]] + b_time[species[i], reg[i]] * time[i] * pforest[i] + b_space[species[i], reg[i]] * space[i] * pforest[i] + obs_offset[obs[i]] + noise[i]);
+  }
+  
+  
+  
 // differences for each species summarized across regions
   for(s in 1:nspecies){
      for(g in 1:nreg){
@@ -219,6 +256,7 @@ generated quantities{
   }
   
 
+// for each region summarized across the species in that region
   for(g in 1:nreg){
      for(s in 1:nspecies){
        if(sp_reg_inclusion[s,g] == 1){
@@ -235,11 +273,49 @@ generated quantities{
   
 
 
+  // repeat the above for the mean effect
   
+  
+  // b_space
+    for(s in 1:nspecies){
 
-  // Y_rep for prior predictive check
-  for(i in 1:ncounts){
-  y_rep[i] = poisson_log_rng(a[species[i], reg[i]] + b_time[species[i], reg[i]] * time[i] * pforest[i] + b_space[species[i], reg[i]] * space[i] * pforest[i] + obs_offset[obs[i]] + noise[i]);
+    b_space_mean_sp[s] = mean(b_space[s,sp_reg_mat[s,1:nreg_s[s]]]); // uses only the regions included for a given species to calculation the means
+
+  }
+
+  for(g in 1:nreg){
+
+    b_space_mean_rg[g] = mean(b_space[reg_sp_mat[g, 1:nsp_r[g]], g]); // uses only the species in that region to calcualte means
   }
   
+  
+  // b_time
+  
+      for(s in 1:nspecies){
+
+    b_time_mean_sp[s] = mean(b_time[s,sp_reg_mat[s,1:nreg_s[s]]]); // uses only the regions included for a given species to calculation the means
+
+  }
+
+  for(g in 1:nreg){
+
+    b_time_mean_rg[g] = mean(b_time[reg_sp_mat[g, 1:nsp_r[g]], g]); // uses only the species in that region to calcualte means
+  }
+  
+  
+  /// intercept space
+  for(g in 1:nreg){
+
+    a_space_mean_rg[g] = mean(a[2, reg_sp_mat[g, 1:nsp_r[g]], g]); // uses only the species in that region to calcualte means
+  }
+  
+  // time
+  for(g in 1:nreg){
+
+    a_time_mean_rg[g] = mean(a[1, reg_sp_mat[g, 1:nsp_r[g]], g]); // uses only the species in that region to calcualte means
+  }
+
+
+
+
 }

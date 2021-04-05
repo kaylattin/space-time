@@ -66,12 +66,22 @@ save(draws, file = "species_abund_draws.RData")
 b_space <- summary(stanfit, pars = "b_space")
 b_time <- summary(stanfit, pars = "b_time")
 a <- summary(stanfit, pars = "a")
-b_dif <- 
 
 
+x <- b_space$summary[,1]
+x[which(x == 0)] <- NA
+x <- na.omit(x)
 
+y <- b_time$summary[,1]
+y[which(y == 0)] <- NA
+y <- na.omit(y)
 
+plot(x, y)
 
+### species-regions all at once
+  
+mat <- as.matrix(stanfit, pars = c("b_space", "b_time"))
+mcmc_scatter(mat, pars = c("b_space", "b_time"))
 
 
 #########################

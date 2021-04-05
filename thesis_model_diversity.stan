@@ -39,22 +39,12 @@ data {
 
 parameters {
 // MAIN MODEL
+  matrix[nreg, nst] a;
   real<lower=0> sigma;
-  
-  
-  vector[nreg] a_raw;   // intercept measuring mean total abundance in a given comparison region
-  vector[nreg] mu_a;  // hyperparameter on mean total abundance
-  vector<lower=0>[nreg] sigma_a; // sd - variance of total abundance across all regions
-  
-  vector[nreg] b_time_raw;              // z-score filled time slope estimates
-  vector[nreg] b_space_raw;           // z-score filled space slope estimates
-  vector<lower=0>[nreg] sigma_time;
-  vector<lower=0>[nreg] sigma_space;
-  vector[nreg] B_TIME;
-  vector[nreg] B_SPACE;
-  
 
-
+  vector[nreg] b_space;
+  vector[nreg] b_time;
+  
   
 // OBSERVER SUB-MODEL
   real<lower=0> sigma_obs;
@@ -67,28 +57,6 @@ parameters {
 
 }
 
-transformed parameters{
-  vector[nreg] a;
-  matrix[nst, nreg] b;
-
- // non-centered parameterization for slope
-for( g in 1:nreg ){
-  b[1, g] = B_TIME[g] + sigma_time[g] * b_time_raw[g];  
-
-
-  b[2, g] =  B_SPACE[g] + sigma_time[g] * b_space_raw[g];  
-
-}
-
-
-// non-centered parameterization for intercept
-
-for( g in 1:nreg ) {
-  a[g] = mu_a[g] + sigma_a[g] * a_raw[g];
-
-}
-
-}
 
 model {
   vector[ncounts_obs] mu_obs;
@@ -104,7 +72,7 @@ sigma_r_obs ~ student_t(4, 0, 1);
  
 route_effect ~ normal(0, sigma_r_obs);           // Prior for bbs route effect - random
 ecoreg_effect ~ normal(0, sigma_e_obs);          // Prior for ecoregion effect - random
-obs_offset ~ normal(0, 0.1);                   // Prior for observer offset - fixed
+obs_offset ~ std_normal();                 // Prior for observer offset - fixed
 
 
 
@@ -119,27 +87,17 @@ diversity_obs ~ normal(mu_obs, sigma_obs);
 
 
 // MAIN MODEL 
-for( g in 1:nreg ){
-   a_raw[g] ~ std_normal();
-   mu_a[g] ~ normal(0, 0.1);
-   sigma_a[g] ~ student_t(4, 0, 1);
-   
-   b_time_raw[g] ~ std_normal(); // prior for uncentered raw slopes, Z-score variation among regions after accounting for species mean slope
-   sigma_time[g] ~ student_t(4, 0, 1);
-   B_TIME[g] ~ normal(0, 0.1); // hyperprior for species mean slope
-   
-   b_space_raw[g] ~ std_normal(); // space slope priors
-   sigma_space[g] ~ student_t(4, 0, 1);
-   B_SPACE[g] ~ normal(0, 0.1);
-  
-}
+   to_vector(a) ~ std_normal();
+   b_space ~ normal(0, 0.1);
+   b_time ~ normal(0, 0.1);
+
 
  sigma ~ student_t(4, 0, 1);
   
   // likelihood
     for(i in 1:ncounts) {
       
-    mu[i] = a[reg[i]] + b[spacetime[i], reg[i]] * pforest[i] + obs_offset[obs[i]];
+    mu[i] = a[reg[i], spacetime[i]] + b_time[reg[i]] * time[i] * pforest[i] + b_space[reg[i]] * space[i] * pforest[i] + obs_offset[obs[i]];
     }
     
 diversity ~ normal(mu, sigma);          
@@ -153,13 +111,13 @@ generated quantities{
   vector[nreg]  b_dif_rg;
 
      for(g in 1:nreg){
-         b_dif_rg[g] = b[1, g]-b[2, g];
+         b_dif_rg[g] = b_time[g]-b_space[g];
      }
   
 
 
   // Y_rep for prior predictive check
   for(i in 1:ncounts){
-  y_rep[i] = normal_rng(a[reg[i]] + b[spacetime[i], reg[i]] * pforest[i] + obs_offset[obs[i]], sigma);
+  y_rep[i] = normal_rng(a[reg[i], spacetime[i]] + b_time[reg[i]] * time[i] * pforest[i] + b_space[reg[i]] * space[i] * pforest[i] + obs_offset[obs[i]], sigma);
   }
 }

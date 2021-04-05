@@ -17,13 +17,18 @@ draws_richness <- rstan::extract(stanfit, pars = c("a", "b_space", "b_time", "B_
 
 save(draws_richness, file = "richness_draws.RData")
 
-b <- summary(stanfit, pars = "b")
-x <- b$summary[1:32,1]
-y <- b$summary[33:64, 1]
+b_space <- summary(stanfit, pars = "b_space")
+b_time <- summary(stanfit, pars = "b_time")
+a <- summary(stanfit, pars = "a")
+
+
+x <- b_space$summary[,1]
+y <- b_time$summary[,1]
 
 
 b_rich <- data.frame(x, y)
-b_rich$region <- seq(1:32)
+b_rich$region <- seq(1:27)
+
 
 
 ## all regions
@@ -67,29 +72,32 @@ richness
 ####################
 
 
-load("v4_diversity_stanfit_test.RData")
-draws_div <- rstan::extract(stanfit, pars = c("a", "b_space", "b_time", "B_TIME", "B_SPACE"))
+load("diversity_stanfit_mar29_int.RData")
+draws_div <- rstan::extract(stanfit, pars = c("a", "b_space", "b_time"))
 
-save(draws_div, file = "diversity_draws.RData")
 
-b <- summary(stanfit, pars = "b")
-x <- b$summary[1:32,1]
-y <- b$summary[33:64, 1]
+b_space <- summary(stanfit, pars = "b_space")
+b_time <- summary(stanfit, pars = "b_time")
+a <- summary(stanfit, pars = "a")
+
+
+x <- b_space$summary[,1]
+y <- b_time$summary[,1]
 
 
 b_div <- data.frame(x, y)
-b_div$region <- seq(1:32)
+b_div$region <- seq(1:27)
 
 
 ## all regions
-shannon <- ggplot(b_div, mapping = aes(y, x)) + 
+shannon <- ggplot(b_div, mapping = aes(x, y)) + 
   geom_point(
     colour = "#D1495B",
     alpha = 0.7,
     size = 3
   ) +
   geom_text(
-    aes(label = b_div$region),
+    aes(label = region),
     hjust = -0.2,
     vjust = -0.3
     
@@ -124,17 +132,21 @@ draws_ta <- rstan::extract(stanfit, pars = c("a", "b_space", "b_time", "B_TIME",
 
 save(draws_ta, file = "ta_draws.RData")
 
-b <- summary(stanfit, pars = "b")
-x <- b$summary[1:32,1]
-y <- b$summary[33:64, 1]
+b_space <- summary(stanfit, pars = "b_space")
+b_time <- summary(stanfit, pars = "b_time")
+a <- summary(stanfit, pars = "a")
+
+
+x <- b_space$summary[,1]
+y <- b_time$summary[,1]
 
 
 b_ta <- data.frame(x, y)
-b_ta$region <- seq(1:32)
+b_ta$region <- seq(1:27)
 
 
 ## all regions
-ta <- ggplot(b_ta, mapping = aes(y, x)) + 
+ta <- ggplot(b_ta, mapping = aes(x, y)) + 
   geom_point(
     colour = "#EDAE49",
     alpha = 0.7,
