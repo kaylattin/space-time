@@ -2,6 +2,8 @@ library(tidyverse)
 library(ggpubr)
 library(rstan)
 library(bayesplot)
+library(rethinking)
+library(scales)
 
 load("main_model_mar31.RData")
 
@@ -166,39 +168,59 @@ all
 ### Plot by region, cycling through 
 
 d <- read.csv("~/space-time/final datasets/whole_dataset_ND_version4.csv")
+d$Region <- as.integer(as.factor(d$ref))
+d$Obs_ID <- as.integer(as.factor(d$ObsN))
 
-par(mfrow=c(5,2))
+draws <- rstan::extract(stanfit, pars = c("a", "b_space", "b_time", "obs_offset",
+                                          "b_dif_sp_mean",
+                                          "b_dif_reg_mean",
+                                          "b_time_mean_sp",
+                                          "b_time_mean_rg",
+                                          "b_space_mean_sp",
+                                          "b_space_mean_rg",
+                                          "a_space_mean_rg",
+                                          "a_time_mean_rg"))
+
+par(mfrow=c(3,2))
+par(mai=c(0.5, 1, 0.4, 1))
 
 for(i in 1:27){
   d_filter <- d %>% filter(Region == i)
+  d_filter$Colour= "#192e40"
+  d_filter$Shape = 16
+  # Set new column values to appropriate colours
+  d_filter$Colour[d_filter$space.time == 2] = "#D1495B"
+  d_filter$Shape[d_filter$space.time == 2] = 17
   
   d_space <- d_filter %>% filter(space.time == 2)
   d_time <- d_filter %>% filter(space.time == 1)
-
-  int <- at_rg$summary[i,1]
-  ins <- as_rg$summary[i,1]
-  b_space <- bs_rg$summary[i,1]
-  b_time <- bt_rg$summary[i,1]
+  n <- nrow(d_space)
+  
+  x.seq <- seq( from=min(scale(d_filter$Forest.cover)), to = max(scale(d_filter$Forest.cover)), length.out = 30 )
   
   
-  plot(scale(d_space$Forest.cover), d_space$Count,
-       xlab = "% forest cover", ylab = "Species abundance")
+  mu.space <- sapply(x.seq,  function(x) exp( mean( draws$a_space_mean_rg[, i] + mean(draws$obs_offset[, d_space$Obs_ID[1:n]]) + draws$b_space_mean_rg[, i] * x ) ) ) 
+  mu.time <- sapply(x.seq,  function(x) exp( mean( draws$a_time_mean_rg[, i] + mean(draws$obs_offset[, d_time$Obs_ID[1:15]]) + draws$b_time_mean_rg[, i] * x ) ) )
   
-  x <- scale(d$Forest.cover)
+  ci.space <- sapply(x.seq,  function(x) exp( PI( draws$a_space_mean_rg[, i] + mean(draws$obs_offset[, d_space$Obs_ID[1:n]]) + draws$b_space_mean_rg[, i] * x ) ) )
+  ci.time <- sapply(x.seq,  function(x) exp( PI( draws$a_time_mean_rg[, i] + mean(draws$obs_offset[, d_time$Obs_ID[1:15]]) + draws$b_time_mean_rg[, i] * x ) ) )
   
-  curve( exp(ins + b_space * x), add = TRUE)
   
-  mtext(paste(i,  "- space; slope:", b_space))
+  plot(scale(d_filter$Forest.cover), d_filter$Count, col = alpha(d_filter$Colour, 0.6), pch = d_filter$Shape,
+       xaxt = "n", yaxt = "n", cex.lab = 1.5, cex.main = 2, 
+       main = paste("Region", i), xlab = "% forest cover", ylab = "Species Abundance")
   
-  plot(scale(d_time$Forest.cover), d_time$Count,
-       xlab = "% forest cover", ylab = "Species abundance")
+  axis(1, at = c(min(scale(d_filter$Forest.cover)), median(scale(d_filter$Forest.cover)), max(scale(d_filter$Forest.cover))), 
+       labels = c(round(min(d_filter$Forest.cover),2), round(median(d_filter$Forest.cover),2), round(max(d_filter$Forest.cover),2)),
+       cex.axis = 1.5)
+  axis(2, cex.axis = 1.5)
   
-  x <- scale(d$Forest.cover)
+  shade( ci.time, x.seq, col = alpha("#192e40", 0.1))
+  shade( ci.space, x.seq, col = alpha("#D1495B", 0.2))
   
-  curve( exp(int + b_time* x), add = TRUE)
   
-  mtext(paste(i, "- time; slope:", b_time))
-  
+  lines( x.seq, mu.time, col = "#192e40", lwd = 1.5)
+  lines( x.seq, mu.space, col = "#D1495B", lwd = 1.5 )
 }
 
 
