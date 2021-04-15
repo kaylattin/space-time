@@ -105,6 +105,7 @@ write.csv(dd_long, "check_dd_long.csv")
 #    US &CANADA FILTERING     | ------------------------------------------------------------------------------------------
 # ----------------------------#
 
+dd_long <- read.csv("check_dd_long.csv")
 
 # Sum across the x stops that are forested >60% within 100m 
 stopForest <- read.csv("~/arcmap/april 2021/forest_stops.csv")
@@ -118,33 +119,71 @@ df <- vector("list")
 
 rteno <- as.vector(unlist(read.csv("~/listofsites.txt", header = F)))
 
+# for every one of my comparison regions, keep only the stops that are forested (in stopForest)
+# and then sum counts for each species across those stops (after they've been filtered for)
 for( i in rteno ){
   
   s <- stopForest %>% filter(RouteNumber == i )
   
   if(nrow(s) > 0){
-  stop <- as.vector(unlist(s$Stop))
+  stop <- unique(s$Stop)
   f <- dd_long %>% filter( RouteNumber == i ) %>% filter( Stop %in% stop )
-  df[[paste(i)]] <- f %>% group_by(Transect, RouteNumber, Year, CountryNum, English_Common_Name) %>% summarize(Count = sum(Count))
+
+
+  years <- unique(f$Year)
+  f_list <- vector("list")
+  
+  for( y in years ){
+    syears <- s %>% filter(year == y )
+    
+    if(nrow(syears) > 0){
+    stopyears <- unique(syears$Stop)
+    
+    fyears <- f %>% filter( Year == y ) %>% filter( Stop %in% stopyears )
+    fyears <- fyears %>% group_by(Transect, RouteNumber, Year, CountryNum, English_Common_Name) %>% summarize(Count = sum(Count))
+    fyears$NumForestStops <- n_distinct(stopyears)
+    
+    f_list[[paste(y)]] <- fyears
+    
+    }else{
+      Transect = NA
+      RouteNumber = i
+      Year = NA
+      CountryNum = NA
+      English_Common_Name = NA
+      Count = 0
+      NumForestStops = 0
+      
+      f_list[[paste(y)]] <- data.frame(Transect, RouteNumber, Year, CountryNum, English_Common_Name, Count, NumForestStops)
+    }
+  }
+  
+  f <- do.call("rbind", f_list)
+  
+  df[[paste(i)]] <- f
+  
   }else{
-  Transect = NA
-  RouteNumber = i
-  Year = NA
-  CountryNum = NA
-  English_Common_Name = NA
-  Count = 0
-  df[[paste(i)]] <- data.frame(Transect, RouteNumber, Year, CountryNum, English_Common_Name, Count)
+    Transect = NA
+    RouteNumber = i
+    Year = NA
+    CountryNum = NA
+    English_Common_Name = NA
+    Count = 0
+    NumForestStops = 0
+    
+    df[[paste(i)]] <- data.frame(Transect, RouteNumber, Year, CountryNum, English_Common_Name, Count, NumForestStops)
   }
 
+  
 }
 
 summarize_df <- do.call("rbind", df)
 
-na <- summarize_df[is.na(summarize_df$Transect),]
-remove <- as.vector(na$RouteNumber)
-summarize_df <- summarize_df %>% filter(!RouteNumber %in% remove)
+noforeststops <- summarize_df %>% filter(NumForestStops == 0) %>% filter(Year > 2000) %>% distinct(RouteNumber)
 
+summarize_df_clean <- summarize_df %>% filter(!NumForestStops == 0)
 
+write.csv(summarize_df_clean, "summarize_df.csv")
 
 #### OBSERVER AND WEATHER  ---------------------------------------------------------------------
 # Create unique placeholder ID for statenum + route
@@ -196,9 +235,9 @@ for( i in obs_id ){
     
     # find the first year the observer surveyed for bbs and mark it as a first observation
     if( o$Year[n] == min ){
-      o$FirstObs[n] = 1
+      o$FirstObs[n] = 2
     }else{
-      o$FirstObs[n] = 0
+      o$FirstObs[n] = 1
     }
   
   }
@@ -221,6 +260,7 @@ write.csv(ddf, "base_100m_dataset.csv")
 
 
 ## filter for the sites I want across the 27 comparison regions and compute species richness!
+ddf <- read.csv("~/space-time/data prep/base_100m_dataset.csv")
 filter <- read.csv("~/space-time/final datasets/whole_dataset_richness_mar2021_version4.csv")
 
 forestcodes <- read.csv("forestcodes.csv", header = T)
@@ -241,11 +281,27 @@ filter <- filter %>% dplyr::select(ref, Transect, space.time, Forest.cover)
 
 final_df <- merge(dddf, filter, by = "Transect")
 
-richness <- final_df %>% group_by(space.time, ref, Transect, RouteNumber, Year, ObsN, Forest.cover, FirstObs) %>%
+richness <- final_df %>% group_by(space.time, ref, Transect, RouteNumber, Year, ObsN, Forest.cover, FirstObs, NumForestStops) 
+
+#%>%
   summarise(Richness = n_distinct(which(Count >= 1))) # how many species present in that route / year combo
+
+
+## remove any without forest stops
+richness <- richness %>% filter(!NumForestStops == 0)
+
+# any temporal years below 15 data points?
+temporal <- richness %>% filter(space.time == 1)
+
+
+temporal_years <- temporal %>% group_by(RouteNumber) %>% summarize(nyears = n_distinct(Year))
+below_15 <- temporal_years %>% filter(!nyears >= 15)
+
 
 # have to take out 4105
 richness <- richness %>% filter(!ref == 4105)
+richness <- richness %>% filter(!ref %in% as.vector(unlist(below_15)))
+n_distinct(richness$ObsN)
 
 write.csv(richness, "~/space-time/final datasets/richness_dataset_100m.csv")
 
@@ -253,8 +309,8 @@ write.csv(richness, "~/space-time/final datasets/richness_dataset_100m.csv")
 
 dat_obs <- read.csv("clean_bbs_dataset_mar2021.csv")
 dat_obs <- merge(dat_obs, bbl, by = "English_Common_Name", all.x = TRUE)
-dat_obs <- dat_obs %>% filter(ObsN %in% richness$ObsN) %>% filter(BBL %in% final_df$BBL)
-
+dat_obs <- dat_obs %>% filter(BBL %in% final_df$BBL) %>% filter(ObsN %in% richness$ObsN)
+n_distinct(dat_obs$ObsN)
 dat_obs$Obs_ID <- as.integer(as.factor(dat_obs$ObsN))
 dat_obs$Route_ID <- as.integer(as.factor(dat_obs$RouteNumber))
 dat_obs$Eco_ID <- as.integer(as.factor(dat_obs$Ecoregion_L1Code))
@@ -266,5 +322,5 @@ n_distinct(richness$ObsN)
 richness_obs <- dat_obs %>% group_by(RouteNumber, Year, ObsN, Eco_ID, Obs_ID, Route_ID ) %>%
   summarise(Richness = n_distinct(which(Count >= 1))) # how many species present in that route / year combo
 
-write.csv(dat_obs, "~/space-time/final datasets/richness_observer_100m.csv")
+write.csv(richness_obs, "~/space-time/final datasets/richness_observer_100m.csv")
 

@@ -108,39 +108,6 @@ dd$Count<-dd$Stop1+dd$Stop2+dd$Stop3+dd$Stop4+dd$Stop5+dd$Stop6+dd$Stop7+dd$Stop
 summarize_df <- dd %>% group_by(Transect, RouteNumber, Year, CountryNum, English_Common_Name) %>% summarize(Count = sum(Count))
 
 
-# Select years >= 2000
-df <- summarize_df[which(summarize_df$Year >= 2000),]
-
-write.csv(df, "canada_us_bbs.csv")
-
-
-# -------------------------#
-#   ADDING IN MORE INFO   |-----------------------------------------------------------------------------------------------
-# ------------------------#
-
-#### FOREST COVER --------------------------------------------------------------------------------------------------------
-df <- read.csv("canada_us_bbs.csv")
-
-
-# obtained from extracting % mean forest cover from GFC forest layers in each transect
-forestcover <- read.csv("forestcover_master_mar2021.csv", header=T, check.names = FALSE)
-
-change <- forestcover %>% select(rte, change)
-cover <- dplyr::select(forestcover, -c(change))
-
-# reformat to long
-forest_long <- reshape(cover, v.names="Forest cover", varying = 2:21, timevar="Year", times=names(cover)[2:21],direction='long')
-forest_long$Transect <- paste(forest_long$rte, forest_long$Year, sep=".")
-forest_long <- dplyr::select(forest_long, -c(rte, Year, id))
-
-ddf <- merge(df, forest_long, by = "Transect")
-
-
-### ECOREGIONS EPA LEVEL 1 obtained from overlay in ArcGis ---------------------------------------------------------------
-ecoregions <- read.csv("routes_ecoregions.csv", header=T)
-
-ddf <- merge(ddf, ecoregions, by = "RouteNumber")
-
 
 
 
@@ -171,17 +138,75 @@ for(i in 1:nrows) {
   else {
     r$RouteNumber[i] <- paste(r$StateNum[i], r$Route[i], sep="")
   }
-
+  
 }
-
 
 r <- dplyr::select(r, -c(RouteDataID, StateNum, Route, RunType))
 obs <- merge(obs, r, by = "placeholder", all.x = FALSE)
 obs$Transect <- paste(obs$RouteNumber, obs$Year, sep=".")
+
+obs_id <- obs %>% distinct(Obs)
+
+for( i in obs_id ){
+  # filter for all observations done by an observer in the whole history of bbs
+  o <- obs %>% filter(ObsN == i )
+  nrow <- nrow(o)
+  
+
+  for( n in 1:nrow)
+    
+    # find the first year the observer surveyed for bbs and mark it as a first observation
+   if( o$Year[n] == min ){
+    o$FirstObs[n] = 1
+   }else{
+     o$FirstObs[n] = 0
+   }
+  
+  
+}
+
+
+
 obs_clean <- obs %>% filter(Year >= 2000) %>% dplyr::select(c(Transect, ObsN, StartWind, RunType))
 obs_clean <- obs_clean[!duplicated(obs_clean$Transect), ]
 
+# Select years >= 2000
+ddf <- summarize_df[which(summarize_df$Year >= 2000),] 
 dddf <- merge(ddf, obs_clean, by = "Transect", all.x = FALSE)
 
-write.csv(dddf, "clean_bbs_dataset_mar2021.csv")
+
+write.csv(dddf, "canada_us_bbs.csv")
+
+
+# -------------------------#
+#   ADDING IN MORE INFO   |-----------------------------------------------------------------------------------------------
+# ------------------------#
+
+#### FOREST COVER --------------------------------------------------------------------------------------------------------
+df <- read.csv("canada_us_bbs.csv")
+
+
+# obtained from extracting % mean forest cover from GFC forest layers in each transect
+forestcover <- read.csv("forestcover_master_mar2021.csv", header=T, check.names = FALSE)
+
+change <- forestcover %>% dplyr::select(rte, change)
+cover <- dplyr::select(forestcover, -c(change))
+
+# reformat to long
+forest_long <- reshape(cover, v.names="Forest cover", varying = 2:21, timevar="Year", times=names(cover)[2:21],direction='long')
+forest_long$Transect <- paste(forest_long$rte, forest_long$Year, sep=".")
+forest_long <- dplyr::select(forest_long, -c(rte, Year, id))
+
+ddf <- merge(df, forest_long, by = "Transect")
+
+
+
+### ECOREGIONS EPA LEVEL 1 obtained from overlay in ArcGis ---------------------------------------------------------------
+ecoregions <- read.csv("routes_ecoregions.csv", header=T)
+
+ddf <- merge(ddf, ecoregions, by = "RouteNumber")
+
+
+
+write.csv(dddf, "clean_bbs_dataset.csv")
 

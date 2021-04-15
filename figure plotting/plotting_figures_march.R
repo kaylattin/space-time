@@ -13,7 +13,7 @@ setwd("/Users/kayla/Documents/space-time/final datasets")
 
 
 load("v4_richness_stanfit.RData")
-draws_richness <- rstan::extract(stanfit, pars = c("a", "b_space", "b_time", "B_TIME", "B_SPACE"))
+draws_richness <- rstan::extract(stanfit, pars = c("a", "b_space", "b_time", "observer"))
 
 save(draws_richness, file = "richness_draws.RData")
 
@@ -27,12 +27,12 @@ y <- b_time$summary[,1]
 
 
 b_rich <- data.frame(x, y)
-b_rich$region <- seq(1:27)
+b_rich$region <- seq(1:21)
 
 
 
 ## all regions
-richness <- ggplot(b_rich, mapping = aes(y, x)) + 
+richness <- ggplot(b_rich, mapping = aes(x,y)) + 
   geom_point(
     colour = "#192e40",
     alpha = 0.7,

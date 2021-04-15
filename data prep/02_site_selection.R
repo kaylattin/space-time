@@ -68,7 +68,7 @@ temporal_loss <- rtes[which(rtes$change >= 0.20), ]
 temporal_gain <- rtes[which(rtes$change <= -0.20),]
 
 
-temporal_years <- d %>% filter(RouteNumber %in% temporal$RouteNumber)
+temporal_years <- d %>% filter(RouteNumber %in% temporal_loss$RouteNumber)
 temporal_years <- temporal_years %>% group_by(RouteNumber) %>% summarize(nyears = n_distinct(Year))
 temporal_years <- temporal_years %>% filter(nyears >= 15)
 
