@@ -1,6 +1,7 @@
 setwd("/Users/kayla/Documents/space-time/data prep")
 
 library(tidyverse)
+library(vegan)
 
 sp <- read.csv("SpeciesList.csv")
 sp <- sp %>% select(AOU, English_Common_Name)
@@ -102,7 +103,7 @@ dd_long$Stop <- str_remove(dd_long$Stop, "Stop")
 write.csv(dd_long, "check_dd_long.csv")
 
 # -------------------------------------------#
-#   SPECIES RICHNESS ACROSS FORESTED STOPS   | ------------------------------------------------------------------------------------------
+#   SPECIES diversity ACROSS FORESTED STOPS   | ------------------------------------------------------------------------------------------
 # ------------------------------------------#
 # Load csv file back in
 dd_long <- read.csv("check_dd_long.csv")
@@ -110,130 +111,35 @@ dd_long <- read.csv("check_dd_long.csv")
 
 
 forestcodes <- read.csv("forestcodes_REVISED.csv", header = T)
-forestcodes <- forestcodes %>% dplyr::select(English_Common_Name, new.status) %>% distinct(English_Common_Name, new.status)
+forestcodes <- forestcodes %>% dplyr::select(English_Common_Name, status) %>% distinct(English_Common_Name, status)
 bbl <- read.csv("bbl_codes.csv") # had to make manual changes to YRWA, DEJU in Excel as well as add Sooty Grouse, Ruffed Grouse, Northern Bobwhite 
 # since BBL doesn't provide codes for gallinaceous birds
 
 ddf <- merge(dd_long, bbl, by = "English_Common_Name", all.x=FALSE)
 ddf <- merge(ddf, forestcodes, by = "English_Common_Name")
 
-# ddf2 <- ddf %>% filter(new.status == c("O")) ## if doing open birds at open stops
-
-ddf2 <- ddf %>% filter(new.status == "F") ## if doing forest birds at forest stops
-
+ddf2 <- ddf %>% filter(!status == "W")  ## all except waterbirds, shorebirds, nocturnal
+ddf2 <- ddf2 %>% filter(!status == "N")
 
 # Write to csv file
-# write.csv(ddf2, "~/space-time/data prep/SR3_mean_open/dd_long_open_only_FINAL.csv") # if open
-write.csv(ddf2, "~/space-time/data prep/SR2_mean_forest/dd_long_forest_FINALV2.csv") # if forest
+write.csv(ddf2, "~/space-time/data prep/dd_long_all_FINAL.csv")
 
-ddf2 <- read.csv("~/space-time/data prep/SR2_mean_forest/dd_long_forest_FINALV2.csv")
-
-# Sum across the x stops that are forested >60% within 100m 
-stopForest <- read.csv("~/arcmap/april 2021/forest_stops.csv")   ## change if looking at forested or open stops
-
-stopForest$rte <- sub("\\.[0-9]+$", "", stopForest$X)
-stopForest$RouteNumber <- sub("\\.[0-9]+$", "", stopForest$rte)
-stopForest$Stop <- sub(".*\\.", "", stopForest$rte)
+ddf <- read.csv("~/space-time/data prep/dd_long_all_FINAL.csv")
 
 
-
-## IMPORTANT STEP!
+#IMPORTANT STEP!
 # Because of renaming above under "clean up species", counts for the same species can appear twice but not in the same record
 # Northern Flicker, Yellow-Rumped Warbler, and Dark-eyed Junco might have more than 1 record per stop
 
 # Group by my columns down to the stop-level and summarize the counts 
-#ddf <- read.csv("dd_long_open.csv")
+ddf$Transect <- paste(ddf2$RouteNumber, ddf2$Year, sep=".")
+ddf <- ddf %>% group_by(Transect, RouteNumber, Year, CountryNum, English_Common_Name, BBL, Stop) %>% summarize(Count = sum(Count))
 
-ddf <- ddf2 %>% group_by(Transect, RouteNumber, Year, CountryNum, English_Common_Name, BBL, Stop) %>% summarize(Count = sum(Count))
+# Calculate total abundance (across all 11 stops) for each site
+summarize_df <- ddf %>% group_by(Transect, RouteNumber, Year, CountryNum) %>% summarize(TA = sum(Count))
 
+write.csv(summarize_df, "~/space-time/data prep/TA1_total/summarize_df_ta.csv")
 
-df <- vector("list") # Initialize list
-
-# Find list of my routes (all spatial and temporal) that were previously identified
-rteno <- as.vector(unlist(read.csv("~/listofsites.txt", header = F)))
-
-
-for( i in rteno ){
-  # Filter forested stop dataset to focus on route i
-  s <- stopForest %>% filter(RouteNumber == i )
-  
-  if(nrow(s) > 0){
-    # For route i, keep only the stops that are forested (in stopForest)
-    stop <- unique(s$Stop)
-    f <- ddf %>% filter( RouteNumber == i ) %>% filter( Stop %in% stop )
-    
-    
-    years <- unique(f$Year)
-    
-    # Initialize list
-    f_list <- vector("list")
-    
-
-    for( y in years ){
-      # For year y in the route, identify further which stops are forested
-      syears <- s %>% filter(year == y )
-      
-      if(nrow(syears) > 0){
-        
-        
-        stopyears <- unique(syears$Stop)
-        
-        # Keep only the stops, in route i year y, that are forested
-        fyears <- f %>% filter( Year == y ) %>% filter( Stop %in% stopyears )
-        
-        # Calculate species richness at each stop within a site
-        fyears <- fyears %>% group_by(Transect, RouteNumber, Year, CountryNum, Stop) %>% summarize(Richness = n_distinct(which(Count >= 1)))
-        fyears$NumForestStops <- n_distinct(stopyears)
-        
-        f_list[[paste(y)]] <- fyears
-        
-      }else{
-        # If year has no data in the bbs, just fill with dummy data
-        Transect = NA
-        RouteNumber = i
-        Year = NA
-        CountryNum = NA
-        Stop = NA
-        Richness = 0
-        NumForestStops = 0
-        
-        f_list[[paste(y)]] <- data.frame(Transect, RouteNumber, Year, CountryNum, Stop, Richness, NumForestStops)
-      }
-    }
-
-    f <- do.call("rbind", f_list) # Rbind into a big dataframe 
-    
-    # Paste the dataframe (for that route) into another initialized list
-    df[[paste(i)]] <- f
-    
-  }else{
-    # If the route has no forested stops, just fill with dummy data
-    Transect = NA
-    RouteNumber = i
-    Year = NA
-    CountryNum = NA
-    Stop = NA
-    Richness = 0
-    NumForestStops = 0
-    
-    df[[paste(i)]] <- data.frame(Transect, RouteNumber, Year, CountryNum, Stop, Richness, NumForestStops)
-  }
-  
-  
-}
-
-# Rbind list together into a dataframe
-summarize_df <- do.call("rbind", df)
-
-# Identify sites with no forested stops and remove them from the dataset
-noforeststops <- summarize_df %>% filter(NumForestStops == 0) %>% distinct(RouteNumber)
-summarize_df_clean <- summarize_df %>% filter(!NumForestStops == 0)
-
-
-# Tabulate mean species richness by taking the average species richness across all forested stops (calculated above)
-summarize_df <- summarize_df_clean %>% group_by(Transect, RouteNumber, Year, CountryNum, NumForestStops) %>% summarize(Richness_avg = mean(Richness))
-
-write.csv(summarize_df, "~/space-time/data prep/SR2_mean_forest/summarize_df_forest_FINAL.csv")
 
 
 # -----------------------------#
@@ -313,7 +219,7 @@ dddf <- merge(summarize_df, obs_clean, by = "Transect", all.x = FALSE)   # Merge
 # Select years >= 2000
 dddf <- dddf %>% filter(Year >= 2000)
 
-write.csv(dddf, "~/space-time/data prep/SR2_mean_forest/base_100m_dataset_forest.csv")
+write.csv(dddf, "~/space-time/data prep/base_100m_dataset_ta.csv")
 
 
 # -----------------------------#
@@ -323,9 +229,9 @@ write.csv(dddf, "~/space-time/data prep/SR2_mean_forest/base_100m_dataset_forest
 ## Filter for the sites I want across the 27 comparison regions (pre-identified)
 
 # Re-load in the base dataset generated above
-dddf <- read.csv("~/space-time/data prep/SR2_mean_forest/base_100m_dataset_forest.csv")
+dddf <- read.csv("~/space-time/data prep/base_100m_dataset_ta.csv")
 
-# Load in my whole richness dataset which had all my regions of interest
+# Load in my whole diversity dataset which had all my regions of interest
 filter <- read.csv("~/space-time/final datasets/archive_march/whole_dataset_richness_mar2021_version4.csv")
 
 # Re-make the transect columns since they get messed up sometimes
@@ -336,58 +242,14 @@ filter$Transect <- paste(filter$RouteNumber, filter$Year, sep=".")
 filter <- filter %>% dplyr::select(ref, Transect, space.time, Forest.cover)
 
 # Merge together by transect - this extracts
-richness <- merge(dddf, filter, by = "Transect")
-
-# Check temporal summary
-temporal <- richness %>% filter(space.time == 1)
-
-# Take a look at how many years of data there are per temporal site
-temporal_years <- temporal %>% group_by(RouteNumber) %>% summarize(nyears = n_distinct(Year))
-below_15 <- temporal_years %>% filter(!nyears >= 15)  # Identify temporal sites with fewer than 15 years
+diversity <- merge(dddf, filter, by = "Transect")
 
 
 reg <- read.csv("~/space-time/final datasets/SR2_mean_forest/richness_dataset_forest_FINAL.csv")
 reg <- unique(reg$ref)
-richness <- richness %>% filter(!ref == 4105) # Take out the spatial sites for region 4105, because the temporal site had no forested stops
-richness <- richness %>% filter(ref %in% reg) # Remove <15 years of data, leaves me with 21
-n_distinct(richness$ObsN)
-n_distinct(richness$ref)
+diversity <- diversity %>% filter(!ref == 4105) # Take out the spatial sites for region 4105, because the temporal site had no forested stops
+diversity <- diversity %>% filter(ref %in% reg) # Remove <15 years of data, leaves me with 21
+n_distinct(diversity$ObsN)
+n_distinct(diversity$ref)
 
-write.csv(richness, "~/space-time/final datasets/SR2_mean_forest/richness_dataset_forest_FINALV2.csv")
-
-
-
-
-
-### OPTIONAL & WIP - generate observer dataset if using an observer sub-model
-
-dd_long <- read.csv("dd_long_forest.csv")
-dat_obs <- dd_long %>% filter(ObsN %in% richness$ObsN)
-n_distinct(dat_obs$ObsN)
-
-rteno <- unique(dat_obs$RouteNumber)
-df_obs <- vector("list")
-
-for( i in rteno ){
-
-       f <- dd_long %>% group_by(Transect, RouteNumber, Year, CountryNum, Stop) %>% summarize(Richness = n_distinct(which(Count >= 1)))
-    
-       df_obs[[paste(i)]] <- f
-    
-}
-
-dat_obs <- do.call("rbind", df_obs)
-
-dat_obs$Obs_ID <- as.integer(as.factor(dat_obs$ObsN))
-dat_obs$Route_ID <- as.integer(as.factor(dat_obs$RouteNumber))
-dat_obs$Eco_ID <- as.integer(as.factor(dat_obs$Ecoregion_L1Code))
-
-dat_obs <- dat_obs[!is.na(dat_obs$Eco_ID),]
-n_distinct(dat_obs$ObsN)
-n_distinct(richness$ObsN)
-
-richness_obs <- dat_obs %>% group_by(RouteNumber, Year, ObsN, Eco_ID, Obs_ID, Route_ID ) %>%
-  summarise(Richness = n_distinct(which(Count >= 1))) # how many species present in that route / year combo
-
-write.csv(richness_obs, "~/space-time/final datasets/richness_observer_100m.csv")
-
+write.csv(diversity, "~/space-time/final datasets/tabundance_dataset_FINAL.csv")
