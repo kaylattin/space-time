@@ -7,43 +7,42 @@ data {
   int<lower=1> nreg;                           // number of regions
   int<lower=1> nobs;                           // number of unique observers
   int<lower=1> nst;
-  
-  int<lower=0> spacetime[ncounts];
-  int richness[ncounts];   // Species richness
+
+  int<lower=1> spacetime[ncounts];
+  real ta[ncounts];   // Species ta
   int<lower=0> space[ncounts];  // 0-1 indicator for space
   int<lower=0> time[ncounts];  // 0-1 indicator for time
-  int reg[ncounts];  // Regions
+  int<lower=1> reg[ncounts];  // Regions
 
-
-  int obs[ncounts];   // observers
+  int<lower=1> obs[ncounts];   // observers
   real pforest[ncounts];  // Percent forest cover
   
-  
+
+
 }
 
 
 
 parameters {
 // MAIN MODEL
+  real<lower=0> sigma;
+  
   matrix[nreg, nst] a;
 
-  vector[ncounts] noise;                        // Over-dispersion noise parameter
-  real<lower=0> sigma_n;                        // Variance for noise 
-  
   vector[nreg] b_space;
   vector[nreg] b_time;
   
   vector[nobs] observer;
-  
+
 }
 
 
 
 model {
-  vector[ncounts] lambda;
+   vector[ncounts] mu;
 
-
-
+  
+ 
 // MAIN MODEL
 
 for(i in 1:nst){
@@ -56,28 +55,28 @@ for(i in 1:nst){
 }
 
 
- b_space ~ normal(0, 0.1);
- b_time ~ normal(0, 0.1);
+ b_space ~ std_normal();
+ b_time ~ std_normal();
 
-
- sigma_n ~ student_t(4, 0, 1); // Prior for scale parameter for noise
- noise ~ normal(0, sigma_n);  // Prior for noise
- 
  observer ~ std_normal();
 
+ sigma ~  student_t(4, 0, 1);
   
   // likelihood
     for(i in 1:ncounts) {
       
-    lambda[i] = a[reg[i], spacetime[i]] + b_time[reg[i]] * time[i] * pforest[i] +  b_space[reg[i]] * space[i] * pforest[i] + observer[obs[i]] + noise[i];
-    }
+    mu[i] = a[reg[i], spacetime[i]] + b_time[reg[i]] * time[i] * pforest[i] + b_space[reg[i]] * space[i] * pforest[i] + observer[obs[i]];
     
-richness ~ poisson_log(lambda);          
+    }
+
+
+
+ta ~ normal(mu, sigma);         
    
 }
 
 generated quantities{
-  int<lower=0> y_rep[ncounts];
+  real y_rep[ncounts];
   
   vector[nreg]  b_dif_rg;
 
@@ -89,6 +88,6 @@ generated quantities{
 
   // Y_rep for prior predictive check
   for(i in 1:ncounts){
-  y_rep[i] = poisson_log_rng(a[reg[i], spacetime[i]] + b_time[reg[i]] * time[i] * pforest[i] +  b_space[reg[i]] * space[i] * pforest[i] + observer[obs[i]] + noise[i]);
+  y_rep[i] = normal_rng(a[reg[i], spacetime[i]] + b_time[reg[i]] * time[i] * pforest[i] +  b_space[reg[i]] * space[i] * pforest[i] + observer[obs[i]], sigma);
   }
 }

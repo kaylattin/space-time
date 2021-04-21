@@ -9,7 +9,7 @@ data {
   int<lower=1> nst;
   
   int<lower=0> spacetime[ncounts];
-  int richness[ncounts];   // Species richness
+  int ta[ncounts];   // Species ta
   int<lower=0> space[ncounts];  // 0-1 indicator for space
   int<lower=0> time[ncounts];  // 0-1 indicator for time
   int reg[ncounts];  // Regions
@@ -72,7 +72,7 @@ for(i in 1:nst){
     lambda[i] = a[reg[i], spacetime[i]] + b_time[reg[i]] * time[i] * pforest[i] +  b_space[reg[i]] * space[i] * pforest[i] + observer[obs[i]] + noise[i];
     }
     
-richness ~ poisson_log(lambda);          
+ta ~ poisson_log(lambda);          
    
 }
 
