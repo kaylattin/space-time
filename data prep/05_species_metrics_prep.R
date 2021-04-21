@@ -3,14 +3,14 @@ library(vegan)
 library(openxlsx)
 library(readxl)
 setwd("~/space-time/data prep")
-spatial <- read.csv("spatial_dataset_mar2021_version4.csv")
-temporal <- read.csv("temporal_dataset_mar2021_version4.csv")
-forestcodes <- read.csv("forestcodes.csv", header = T)
+spatial <- read.csv("~/space-time/data prep/SR1_total/spatial_dataset_mar2021_version4.csv")
+temporal <- read.csv("~/space-time/data prep/SR1_total/temporal_dataset_mar2021_version4.csv")
+forestcodes <- read.csv("forestcodes_SW.csv", header = T)
 forestcodes <- forestcodes %>% dplyr::select(English_Common_Name, status) %>% distinct(English_Common_Name, status)
 bbl <- read.csv("bbl_codes.csv") # had to make manual changes to YRWA, DEJU in Excel as well as add Sooty Grouse, Ruffed Grouse, Northern Bobwhite 
 # since BBL doesn't provide codes for gallinaceous birds
 
-new <- read.csv("~/space-time/final datasets/richness_dataset_100m_v3.csv")
+new <- read.csv("~/space-time/final datasets/SR2_mean_forest/richness_dataset_100m_v3.csv")
 
 reg <- unique(new$ref)
 # some prep - removing spatial & temporal sites that have <10 spatial matches or bbs years
@@ -50,7 +50,7 @@ diversity <- d %>% group_by(space.time, ref, Transect, RouteNumber, Year, ObsN, 
 n_distinct(diversity$ObsN)
 
 write.csv(total, "whole_dataset_ta_mar2021_version4.csv")
-write.csv(richness, "total_richness_dataset.csv")
+write.csv(richness, "~/space-time/final datasets/SR1_total/total_richness_dataset_FINAL.csv")
 write.csv(diversity, "whole_dataset_diversity_mar2021_version4.csv")
 
 
