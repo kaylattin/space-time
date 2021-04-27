@@ -135,9 +135,12 @@ ddf <- read.csv("~/space-time/data prep/dd_long_all_FINAL.csv")
 ddf$Transect <- paste(ddf$RouteNumber, ddf$Year, sep=".")
 ddf <- ddf %>% group_by(Transect, RouteNumber, Year, CountryNum, English_Common_Name, BBL, Stop) %>% summarize(Count = sum(Count))
 
-# Calculate diversity and richness for each stop
-shannon <- ddf %>% group_by(Transect, RouteNumber, Year, CountryNum) %>% summarize(Div = diversity(Count, index = "shannon"))
-richness <-  ddf %>% group_by(Transect, RouteNumber, Year, CountryNum) %>% summarize(Richness = n_distinct(which(Count >= 1)))
+# Find species abundance for each route, each species at all stops
+abund <- ddf %>% group_by(Transect, RouteNumber, Year, CountryNum, English_Common_Name, BBL) %>% summarize(Count = sum(Count))
+
+# THEN calculate richness and shannon
+shannon <- abund %>% group_by(Transect, RouteNumber, Year, CountryNum) %>% summarize(Div = diversity(Count, index = "shannon"))
+richness <-  abund %>% group_by(Transect, RouteNumber, Year, CountryNum) %>% summarize(Richness = n_distinct(which(Count >= 1)))
 
 # Select out the shannon column
 #shannon$id <- paste(shannon$RouteNumber, shannon$Year, shannon$Stop, sep=".")

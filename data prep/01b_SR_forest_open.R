@@ -117,9 +117,9 @@ bbl <- read.csv("bbl_codes.csv") # had to make manual changes to YRWA, DEJU in E
 ddf <- merge(dd_long, bbl, by = "English_Common_Name", all.x=FALSE)
 ddf <- merge(ddf, forestcodes, by = "English_Common_Name")
 
-# ddf2 <- ddf %>% filter(new.status == c("O")) ## if doing open birds at open stops
+ddf2 <- ddf %>% filter(new.status == c("O")) ## if doing open birds at open stops
 
-ddf2 <- ddf %>% filter(new.status == "F") ## if doing forest birds at forest stops
+# ddf2 <- ddf %>% filter(new.status == "F") ## if doing forest birds at forest stops
 
 
 # Write to csv file
@@ -322,72 +322,33 @@ write.csv(dddf, "~/space-time/data prep/SR2_mean_forest/base_100m_dataset_forest
 
 ## Filter for the sites I want across the 27 comparison regions (pre-identified)
 
+
+
+## Filter for the sites I want across the 27 comparison regions (pre-identified)
+
 # Re-load in the base dataset generated above
 dddf <- read.csv("~/space-time/data prep/SR2_mean_forest/base_100m_dataset_forest.csv")
+dddf$Transect <- paste(dddf$RouteNumber, dddf$Year, sep=".")
 
 # Load in my whole richness dataset which had all my regions of interest
-filter <- read.csv("~/space-time/final datasets/archive_march/whole_dataset_richness_mar2021_version4.csv")
-
-# Re-make the transect columns since they get messed up sometimes
-dddf$Transect <- paste(dddf$RouteNumber, dddf$Year, sep=".")
+filter <- read.csv("~/space-time/final datasets/SR1_total/total_richness_FINAL.csv")
 filter$Transect <- paste(filter$RouteNumber, filter$Year, sep=".")
 
+
 # Select the columns I want
-filter <- filter %>% dplyr::select(ref, Transect, space.time, Forest.cover)
+filter <- filter %>% dplyr::select(Transect, ref, Forest.cover, space.time)
 
-# Merge together by transect - this extracts
 richness <- merge(dddf, filter, by = "Transect")
-
-# Check temporal summary
-temporal <- richness %>% filter(space.time == 1)
 
 # Take a look at how many years of data there are per temporal site
 temporal_years <- temporal %>% group_by(RouteNumber) %>% summarize(nyears = n_distinct(Year))
 below_15 <- temporal_years %>% filter(!nyears >= 15)  # Identify temporal sites with fewer than 15 years
 
-
-reg <- read.csv("~/space-time/final datasets/SR2_mean_forest/richness_dataset_forest_FINAL.csv")
-reg <- unique(reg$ref)
 richness <- richness %>% filter(!ref == 4105) # Take out the spatial sites for region 4105, because the temporal site had no forested stops
-richness <- richness %>% filter(ref %in% reg) # Remove <15 years of data, leaves me with 21
+richness <- richness %>% filter(!ref %in% unique(below_15$RouteNumber)) # Remove <15 years of data, leaves me with 21
 n_distinct(richness$ObsN)
 n_distinct(richness$ref)
 
-write.csv(richness, "~/space-time/final datasets/SR2_mean_forest/richness_dataset_forest_FINALV2.csv")
+write.csv(richness, "~/space-time/final datasets/SR2_mean_forest/richness_forest_FINAL.csv")
 
-
-
-
-
-### OPTIONAL & WIP - generate observer dataset if using an observer sub-model
-
-dd_long <- read.csv("dd_long_forest.csv")
-dat_obs <- dd_long %>% filter(ObsN %in% richness$ObsN)
-n_distinct(dat_obs$ObsN)
-
-rteno <- unique(dat_obs$RouteNumber)
-df_obs <- vector("list")
-
-for( i in rteno ){
-
-       f <- dd_long %>% group_by(Transect, RouteNumber, Year, CountryNum, Stop) %>% summarize(Richness = n_distinct(which(Count >= 1)))
-    
-       df_obs[[paste(i)]] <- f
-    
-}
-
-dat_obs <- do.call("rbind", df_obs)
-
-dat_obs$Obs_ID <- as.integer(as.factor(dat_obs$ObsN))
-dat_obs$Route_ID <- as.integer(as.factor(dat_obs$RouteNumber))
-dat_obs$Eco_ID <- as.integer(as.factor(dat_obs$Ecoregion_L1Code))
-
-dat_obs <- dat_obs[!is.na(dat_obs$Eco_ID),]
-n_distinct(dat_obs$ObsN)
-n_distinct(richness$ObsN)
-
-richness_obs <- dat_obs %>% group_by(RouteNumber, Year, ObsN, Eco_ID, Obs_ID, Route_ID ) %>%
-  summarise(Richness = n_distinct(which(Count >= 1))) # how many species present in that route / year combo
-
-write.csv(richness_obs, "~/space-time/final datasets/richness_observer_100m.csv")
 
