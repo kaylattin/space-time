@@ -6,7 +6,7 @@ library(rgeos)
 library(openxlsx)
 library(rlist)
 
-setwd("/Users/kayla/Documents/space-time/data prep")
+setwd("C://Users/kayla/Documents/space-time/data prep")
 # Load in data
 bbs <- read.csv("whole_dataset_apr2021.csv", header = T)
 bbs$Transect <- paste(bbs$RouteNumber, bbs$Year, sep = ".")

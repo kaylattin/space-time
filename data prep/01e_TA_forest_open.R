@@ -128,10 +128,13 @@ write.csv(ddf2, "~/space-time/data prep/SR2_mean_forest/dd_long_forest_FINALV2.c
 
 
 
-ddf2 <- read.csv("~/space-time/data prep/SR2_mean_forest/dd_long_forest_FINALV2.csv")
+# Read back in
+ddf2 <- read.csv("~/space-time/data prep/SR3_mean_open/dd_long_open_only_FINAL.csv")
+# ddf2 <- read.csv("~/space-time/data prep/SR2_mean_forest/dd_long_forest_FINALV2.csv")
+
 
 # Sum across the x stops that are forested >60% within 100m 
-stopForest <- read.csv("~/arcmap/april 2021/forest_stops.csv")   ## change if looking at forested or open stops
+stopForest <- read.csv("~/space-time/data prep/open_stops_FINALV2.csv")   ## change if looking at forested or open stops
 
 stopForest$rte <- sub("\\.[0-9]+$", "", stopForest$X)
 stopForest$RouteNumber <- sub("\\.[0-9]+$", "", stopForest$rte)
@@ -148,14 +151,7 @@ stopForest$Stop <- sub(".*\\.", "", stopForest$rte)
 
 ddf <- ddf2 %>% group_by(Transect, RouteNumber, Year, CountryNum, English_Common_Name, BBL, Stop) %>% summarize(Count = sum(Count))
 
-huh <- ddf %>% group_by(Transect, RouteNumber, Year, CountryNum, English_Common_Name, BBL) %>% summarize(Count = sum(Count))
-
-  
-  huh2 <- ddf %>% filter(RouteNumber == 46051)
-
 df <- vector("list") # Initialize list
-
-i = 46051
 
 # Find list of my routes (all spatial and temporal) that were previously identified
 rteno <- as.vector(unlist(read.csv("~/listofsites.txt", header = F)))
@@ -240,7 +236,7 @@ summarize_df_clean <- summarize_df %>% filter(!NumForestStops == 0)
 # Tabulate mean species ta by taking the average species ta across all forested stops (calculated above)
 summarize_df <- summarize_df_clean %>% group_by(Transect, RouteNumber, Year, CountryNum, NumForestStops) %>% summarize(TA_avg = mean(TA))
 
-write.csv(summarize_df, "~/space-time/data prep/TA3_mean_open/summarize_df_open_FINAL.csv")
+write.csv(summarize_df, "~/space-time/data prep/TA3_mean_open/summarize_df_forest_FINAL.csv")
 
 
 # -----------------------------#
@@ -320,7 +316,7 @@ dddf <- merge(summarize_df, obs_clean, by = "Transect", all.x = FALSE)   # Merge
 # Select years >= 2000
 dddf <- dddf %>% filter(Year >= 2000)
 
-write.csv(dddf, "~/space-time/data prep/TA3_mean_open/base_100m_dataset_open.csv")
+write.csv(dddf, "~/space-time/data prep/TA3_mean_open/base_100m_dataset_forest.csv")
 
 
 # -----------------------------#
@@ -330,70 +326,27 @@ write.csv(dddf, "~/space-time/data prep/TA3_mean_open/base_100m_dataset_open.csv
 ## Filter for the sites I want across the 27 comparison regions (pre-identified)
 
 # Re-load in the base dataset generated above
-dddf <- read.csv("~/space-time/data prep/TA2_mean_forest/base_100m_dataset_forest.csv")
+dddf <- read.csv("~/space-time/data prep/TA3_mean_open/base_100m_dataset_forest.csv")
 
 dddf$Transect <- paste(dddf$RouteNumber, dddf$Year, sep=".")
-
-## Forest
-forestcover <- read.csv("~/space-time/data prep/Forest cover/forestcover_master_mar2021.csv", header=T, check.names = FALSE)
-
-change <- forestcover %>% dplyr::select(rte, change)
-cover <- dplyr::select(forestcover, -c(change))
-
-# reformat to long
-forest_long <- reshape(cover, v.names="Forest cover", varying = 2:21, timevar="Year", times=names(cover)[2:21],direction='long')
-forest_long$Transect <- paste(forest_long$rte, forest_long$Year, sep=".")
-forest_long <- dplyr::select(forest_long, -c(rte, Year, id))
-
-# merge forest
-dddff <- merge(dddf, forest_long, by = "Transect")
-
-
-
+dddf$Transect <- paste(dddf$RouteNumber, dddf$Year, sep=".")
 
 # Load in my whole richness dataset which had all my regions of interest
-filter <- read.csv("~/space-time/final datasets/archive_march/whole_dataset_richness_mar2021_version4.csv")
-
-
-# create spatial and temporal datasets separately
-time <- as.vector(unlist(filter %>% filter(space.time == 1) %>% distinct(RouteNumber)))
-
-temporal <- dddff %>% filter(RouteNumber %in% time)
-temporal$ref <- temporal$RouteNumber
-temporal$space.time = 1
-
-
-# Re-make the transect columns since they get messed up sometimes
+filter <- read.csv("~/space-time/final datasets/SR1_total/total_richness_FINALsubset.csv")
 filter$Transect <- paste(filter$RouteNumber, filter$Year, sep=".")
 
 # Select the columns I want
-filter <- filter %>% dplyr::select(Transect, ref)
+filter <- filter %>% dplyr::select(Transect, ref, Forest.cover, space.time)
 
-# Merge together by transect - this extracts
-spatial <- merge(dddff, filter, by = "Transect")
-spatial <- spatial %>% filter(!RouteNumber %in% time)
-spatial$space.time = 2
+ta <- merge(dddf, filter, by = "Transect")
 
 
-## remove any without forest stops
-final_df <- rbind(temporal, spatial) # rbind spatial and temporal together
-ta <- final_df %>% filter(!NumForestStops == 0)
-
-# Check temporal summary
-temporal <- ta %>% filter(space.time == 1)
-
-# Take a look at how many years of data there are per temporal site
-temporal_years <- temporal %>% group_by(RouteNumber) %>% summarize(nyears = n_distinct(Year))
-below_15 <- temporal_years %>% filter(!nyears >= 15)  # Identify temporal sites with fewer than 15 years
-
-
-reg <- read.csv("~/space-time/final datasets/SR2_mean_forest/richness_dataset_forest_FINALV3.csv")
+reg <- read.csv("~/space-time/final datasets/SR1_total/total_richness_FINALsubset.csv")
 reg <- unique(reg$ref)
-ta <- ta %>% filter(!ref == 4105) # Take out the spatial sites for region 4105, because the temporal site had no forested stops
 ta <- ta %>% filter(ref %in% reg) # Remove <15 years of data, leaves me with 21
 n_distinct(ta$ObsN)
 n_distinct(ta$ref)
 
-write.csv(ta, "~/space-time/final datasets/TA2_mean_forest/ta_dataset_forest_FINALV3.csv")
+write.csv(ta, "~/space-time/final datasets/TA3_mean_open/ta_forest_FINALsubset.csv")
 
 

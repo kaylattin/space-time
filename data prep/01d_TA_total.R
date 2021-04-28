@@ -124,6 +124,8 @@ ddf2 <- ddf2 %>% filter(!status == "N")
 # Write to csv file
 write.csv(ddf2, "~/space-time/data prep/dd_long_all_FINAL.csv")
 
+
+# Read back in 
 ddf <- read.csv("~/space-time/data prep/dd_long_all_FINAL.csv")
 
 
@@ -230,43 +232,22 @@ write.csv(dddf, "~/space-time/data prep/base_100m_dataset_ta.csv")
 
 # Re-load in the base dataset generated above
 dddf <- read.csv("~/space-time/data prep/base_100m_dataset_ta.csv")
-
 dddf$Transect <- paste(dddf$RouteNumber, dddf$Year, sep=".")
-# Load in my whole richness dataset which had all my regions of interest
-filter <- read.csv("~/space-time/final datasets/SR1_total/total_richness_FINAL.csv")
-filter$Transect <- paste(filter$RouteNumber, filter$Year, sep=".")
 
+# Load in my whole richness dataset which had all my regions of interest
+filter <- read.csv("~/space-time/final datasets/SR1_total/total_richness_FINALsubset.csv")
+filter$Transect <- paste(filter$RouteNumber, filter$Year, sep=".")
 
 # Select the columns I want
 filter <- filter %>% dplyr::select(Transect, ref, Forest.cover, space.time)
 
 ta <- merge(dddf, filter, by = "Transect")
 
-# Take a look at how many years of data there are per temporal site
-temporal_years <- temporal %>% group_by(RouteNumber) %>% summarize(nyears = n_distinct(Year))
-below_15 <- temporal_years %>% filter(!nyears >= 15)  # Identify temporal sites with fewer than 15 years
 
-richness <- richness %>% filter(!ref == 4105) # Take out the spatial sites for region 4105, because the temporal site had no forested stops
-richness <- richness %>% filter(!ref %in% unique(below_15$RouteNumber)) # Remove <15 years of data, leaves me with 21
-n_distinct(richness$ObsN)
-n_distinct(richness$ref)
-
-write.csv(richness, "~/space-time/final datasets/SR2_mean_forest/richness_forest_FINAL.csv")
-
-# Check temporal summary
-temporal <- ta %>% filter(space.time == 1)
-
-# Take a look at how many years of data there are per temporal site
-temporal_years <- temporal %>% group_by(RouteNumber) %>% summarize(nyears = n_distinct(Year))
-below_15 <- temporal_years %>% filter(!nyears >= 15)  # Identify temporal sites with fewer than 15 years
-
-
-
-reg <- read.csv("~/space-time/final datasets/SR2_mean_forest/richness_dataset_forest_FINALV3.csv")
+reg <- read.csv("~/space-time/final datasets/SR1_total/total_richness_FINALsubset.csv")
 reg <- unique(reg$ref)
-ta <- ta %>% filter(!ref == 4105) # Take out the spatial sites for region 4105, because the temporal site had no forested stops
 ta <- ta %>% filter(ref %in% reg) # Remove <15 years of data, leaves me with 21
 n_distinct(ta$ObsN)
 n_distinct(ta$ref)
 
-write.csv(ta, "~/space-time/final datasets/tabundance_dataset_FINALV3.csv")
+write.csv(ta, "~/space-time/final datasets/TA1_total/tot_abundance_FINAL.csv")

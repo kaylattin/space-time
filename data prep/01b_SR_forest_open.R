@@ -1,4 +1,4 @@
-setwd("/Users/kayla/Documents/space-time/data prep")
+setwd("C:/Users/kayla/Documents/space-time/data prep")
 
 library(tidyverse)
 
@@ -126,10 +126,11 @@ ddf2 <- ddf %>% filter(new.status == c("O")) ## if doing open birds at open stop
 # write.csv(ddf2, "~/space-time/data prep/SR3_mean_open/dd_long_open_only_FINAL.csv") # if open
 write.csv(ddf2, "~/space-time/data prep/SR2_mean_forest/dd_long_forest_FINALV2.csv") # if forest
 
+#ddf2 <- read.csv("~/space-time/data prep/SR3_mean_open/dd_long_open_only_FINAL.csv")
 ddf2 <- read.csv("~/space-time/data prep/SR2_mean_forest/dd_long_forest_FINALV2.csv")
 
 # Sum across the x stops that are forested >60% within 100m 
-stopForest <- read.csv("~/arcmap/april 2021/forest_stops.csv")   ## change if looking at forested or open stops
+stopForest <- read.csv("~/space-time/data prep/forest_stops_FINALV2.csv")   ## change if looking at forested or open stops
 
 stopForest$rte <- sub("\\.[0-9]+$", "", stopForest$X)
 stopForest$RouteNumber <- sub("\\.[0-9]+$", "", stopForest$rte)
@@ -340,6 +341,8 @@ filter <- filter %>% dplyr::select(Transect, ref, Forest.cover, space.time)
 
 richness <- merge(dddf, filter, by = "Transect")
 
+temporal <- richness %>% filter(space.time == 1)
+
 # Take a look at how many years of data there are per temporal site
 temporal_years <- temporal %>% group_by(RouteNumber) %>% summarize(nyears = n_distinct(Year))
 below_15 <- temporal_years %>% filter(!nyears >= 15)  # Identify temporal sites with fewer than 15 years
@@ -352,3 +355,23 @@ n_distinct(richness$ref)
 write.csv(richness, "~/space-time/final datasets/SR2_mean_forest/richness_forest_FINAL.csv")
 
 
+###### DO THIS ONLY AFTER DOING FOREST AND WHILE DOING OPEN:
+### ONLY FOR OPEN:
+r <- read.csv("~/space-time/final datasets/SR2_mean_forest/richness_forest_FINAL.csv")
+reg <- unique(r$ref)
+richness <- richness %>% filter(ref %in% reg)
+n_distinct(richness$ref)
+
+write.csv(richness, "~/space-time/final datasets/SR3_mean_open/richness_open_FINAL.csv")
+
+
+# ONLY AFTER OPEN: now remove the open sites <15 from the forest
+r <- r %>% filter(!ref %in% unique(below_15$RouteNumber))
+n_distinct(r$ref)
+write.csv(richness, "~/space-time/final datasets/SR2_mean_forest/richness_forest_FINAL.csv")
+
+# repeat with the total richness dataset
+tot <- read.csv("~/space-time/final datasets/SR1_total/total_richness_FINAL.csv")
+tot <- tot %>% filter(ref %in% unique(r$ref))
+n_distinct(tot$ref)
+write.csv(tot, "~/space-time/final datasets/SR1_total/total_richness_FINAL.csv")
