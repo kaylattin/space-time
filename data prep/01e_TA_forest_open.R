@@ -236,7 +236,7 @@ summarize_df_clean <- summarize_df %>% filter(!NumForestStops == 0)
 # Tabulate mean species ta by taking the average species ta across all forested stops (calculated above)
 summarize_df <- summarize_df_clean %>% group_by(Transect, RouteNumber, Year, CountryNum, NumForestStops) %>% summarize(TA_avg = mean(TA))
 
-write.csv(summarize_df, "~/space-time/data prep/TA3_mean_open/summarize_df_forest_FINAL.csv")
+write.csv(summarize_df, "~/space-time/data prep/TA3_mean_open/summarize_df_open_FINAL.csv")
 
 
 # -----------------------------#
@@ -316,7 +316,7 @@ dddf <- merge(summarize_df, obs_clean, by = "Transect", all.x = FALSE)   # Merge
 # Select years >= 2000
 dddf <- dddf %>% filter(Year >= 2000)
 
-write.csv(dddf, "~/space-time/data prep/TA3_mean_open/base_100m_dataset_forest.csv")
+write.csv(dddf, "~/space-time/data prep/TA3_mean_open/base_100m_dataset_open.csv")
 
 
 # -----------------------------#
@@ -326,7 +326,7 @@ write.csv(dddf, "~/space-time/data prep/TA3_mean_open/base_100m_dataset_forest.c
 ## Filter for the sites I want across the 27 comparison regions (pre-identified)
 
 # Re-load in the base dataset generated above
-dddf <- read.csv("~/space-time/data prep/TA3_mean_open/base_100m_dataset_forest.csv")
+dddf <- read.csv("~/space-time/data prep/TA3_mean_open/base_100m_dataset_open.csv")
 
 dddf$Transect <- paste(dddf$RouteNumber, dddf$Year, sep=".")
 dddf$Transect <- paste(dddf$RouteNumber, dddf$Year, sep=".")

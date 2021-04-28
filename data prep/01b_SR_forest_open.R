@@ -126,11 +126,11 @@ ddf2 <- ddf %>% filter(new.status == c("O")) ## if doing open birds at open stop
 # write.csv(ddf2, "~/space-time/data prep/SR3_mean_open/dd_long_open_only_FINAL.csv") # if open
 write.csv(ddf2, "~/space-time/data prep/SR2_mean_forest/dd_long_forest_FINALV2.csv") # if forest
 
-#ddf2 <- read.csv("~/space-time/data prep/SR3_mean_open/dd_long_open_only_FINAL.csv")
-ddf2 <- read.csv("~/space-time/data prep/SR2_mean_forest/dd_long_forest_FINALV2.csv")
+ddf2 <- read.csv("~/space-time/data prep/SR3_mean_open/dd_long_open_only_FINAL.csv")
+#ddf2 <- read.csv("~/space-time/data prep/SR2_mean_forest/dd_long_forest_FINALV2.csv")
 
 # Sum across the x stops that are forested >60% within 100m 
-stopForest <- read.csv("~/space-time/data prep/forest_stops_FINALV2.csv")   ## change if looking at forested or open stops
+stopForest <- read.csv("~/space-time/data prep/open_stops_FINALV2.csv")   ## change if looking at forested or open stops
 
 stopForest$rte <- sub("\\.[0-9]+$", "", stopForest$X)
 stopForest$RouteNumber <- sub("\\.[0-9]+$", "", stopForest$rte)
@@ -234,7 +234,7 @@ summarize_df_clean <- summarize_df %>% filter(!NumForestStops == 0)
 # Tabulate mean species richness by taking the average species richness across all forested stops (calculated above)
 summarize_df <- summarize_df_clean %>% group_by(Transect, RouteNumber, Year, CountryNum, NumForestStops) %>% summarize(Richness_avg = mean(Richness))
 
-write.csv(summarize_df, "~/space-time/data prep/SR2_mean_forest/summarize_df_forest_FINAL.csv")
+write.csv(summarize_df, "~/space-time/data prep/SR3_mean_open/summarize_df_open_FINAL.csv")
 
 
 # -----------------------------#
@@ -314,7 +314,7 @@ dddf <- merge(summarize_df, obs_clean, by = "Transect", all.x = FALSE)   # Merge
 # Select years >= 2000
 dddf <- dddf %>% filter(Year >= 2000)
 
-write.csv(dddf, "~/space-time/data prep/SR2_mean_forest/base_100m_dataset_forest.csv")
+write.csv(dddf, "~/space-time/data prep/SR3_mean_open/base_100m_dataset_open.csv")
 
 
 # -----------------------------#
@@ -328,7 +328,7 @@ write.csv(dddf, "~/space-time/data prep/SR2_mean_forest/base_100m_dataset_forest
 ## Filter for the sites I want across the 27 comparison regions (pre-identified)
 
 # Re-load in the base dataset generated above
-dddf <- read.csv("~/space-time/data prep/SR2_mean_forest/base_100m_dataset_forest.csv")
+dddf <- read.csv("~/space-time/data prep/SR3_mean_open/base_100m_dataset_open.csv")
 dddf$Transect <- paste(dddf$RouteNumber, dddf$Year, sep=".")
 
 # Load in my whole richness dataset which had all my regions of interest
@@ -352,7 +352,7 @@ richness <- richness %>% filter(!ref %in% unique(below_15$RouteNumber)) # Remove
 n_distinct(richness$ObsN)
 n_distinct(richness$ref)
 
-write.csv(richness, "~/space-time/final datasets/SR2_mean_forest/richness_forest_FINAL.csv")
+# write.csv(richness, "~/space-time/final datasets/SR2_mean_forest/richness_forest_FINAL.csv")
 
 
 ###### DO THIS ONLY AFTER DOING FOREST AND WHILE DOING OPEN:

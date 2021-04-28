@@ -16,7 +16,8 @@ g$region <- as.integer(as.factor(g$RouteNumber))
 
 ## total
 
-load("~/space-time/final datasets/total_ta.RData")
+load("~/space-time/final datasets/TA1_total/ta_total_apr28.RData")
+
 b_space <- summary(stanfit, pars = "b_space")
 b_time <- summary(stanfit, pars = "b_time")
 a <- summary(stanfit, pars = "a")
@@ -26,26 +27,82 @@ x <- b_space$summary[,1]
 y <- b_time$summary[,1]
 
 
+
+## set everything up
+niterations = 8000
+N = 200
+
+bs <- rstan::extract(stanfit, "b_space")
+bt <- rstan::extract(stanfit, "b_time")
+
+b_space <- bs$b_space
+b_time <- bt$b_time
+
+# prediction fake data
+pred_data = seq(from = min(x), to = max(x), length.out = 200 )
+
+# initialize
+intercept <- vector("list")
+slope <- vector("list")
+pred_lines <- vector("list")
+mu <- matrix(nrow=8000, ncol=200)
+
+# for every iteration, calculate correlation of b_space (across 33 regions) and b_time (across 33 regions)
+# then predict values using the intercept & slope for each iteration
+for (i in 1:niterations){
+  
+  mlm = lm(b_time[i,] ~ b_space[i,])
+  
+  intercept[i] = mlm$coefficients[[1]] # use mlm or lmodel2?
+  slope[i] = mlm$coefficients[[2]]
+  
+  mu[i,] <- sapply(pred_data,  function(x) mean( unlist(intercept[i]) + unlist(slope[i]) * x ) ) 
+  
+}
+
+mu.mean <- vector()
+
+# now take the mean of each column for n = 200 to find mean predicted values across all iterations
+for(i in 1:N){
+  mu.mean[i] <- mean(mu[,i])
+}
+
+plot(x, y)
+lines( pred_data, mu.mean, col = "#2c7bb6", lwd = 1.5)
+
+
+
 ta <- data.frame(x, y)
-ta$region <- seq(1:21)
+ta$region <- seq(1:33)
 ta <- merge(ta, g, by = "region")
 
+
+# plot these into ggplot?
+int_avg <- mean(unlist(intercept))
+slope_avg <- mean(unlist(slope))
+
+
+
+
 ## all regions
-ta_total <- ggplot(ta, mapping = aes(x,y), color = Location) + 
+ta_total <- ggplot(ta, mapping = aes(x,y)) + 
   geom_point(
-    aes(colour = as.factor(Location)),
-    alpha = 0.7,
+    colour = "#8c96c6",
+    alpha = 0.8,
     size = 5
-  ) +
-  scale_color_manual(values = c("Southeastern US" = "#f768a1",
-                                "Midwestern US"="#8c96c6",
-                                "Eastern US Coast"="#7a0177")
   ) +
   geom_abline(
     intercept = 0,
     slope = 1,
     linetype = "dashed",
+    alpha = 0.5,
     size = 0.5
+  ) +
+  geom_abline(
+    intercept = int_avg,
+    slope = slope_avg,
+    colour = "#8c96c6",
+    size = 1
   ) +
   labs(
     x = "Space slope", 
@@ -60,7 +117,8 @@ ta_total
 
 ## mean - forest
 
-load("~/space-time/final datasets/TA2_mean_forest/mean_ta_forest.RData")
+load("~/space-time/final datasets/TA2_mean_forest/ta_forest_apr28.RData")
+
 b_space <- summary(stanfit, pars = "b_space")
 b_time <- summary(stanfit, pars = "b_time")
 a <- summary(stanfit, pars = "a")
@@ -70,26 +128,81 @@ x <- b_space$summary[,1]
 y <- b_time$summary[,1]
 
 
+
+## set everything up
+niterations = 8000
+N = 200
+
+bs <- rstan::extract(stanfit, "b_space")
+bt <- rstan::extract(stanfit, "b_time")
+
+b_space <- bs$b_space
+b_time <- bt$b_time
+
+# prediction fake data
+pred_data = seq(from = min(x), to = max(x), length.out = 200 )
+
+# initialize
+intercept <- vector("list")
+slope <- vector("list")
+pred_lines <- vector("list")
+mu <- matrix(nrow=8000, ncol=200)
+
+# for every iteration, calculate correlation of b_space (across 33 regions) and b_time (across 33 regions)
+# then predict values using the intercept & slope for each iteration
+for (i in 1:niterations){
+  
+  mlm = lm(b_time[i,] ~ b_space[i,])
+  
+  intercept[i] = mlm$coefficients[[1]] # use mlm or lmodel2?
+  slope[i] = mlm$coefficients[[2]]
+  
+  mu[i,] <- sapply(pred_data,  function(x) mean( unlist(intercept[i]) + unlist(slope[i]) * x ) ) 
+  
+}
+
+mu.mean <- vector()
+
+# now take the mean of each column for n = 200 to find mean predicted values across all iterations
+for(i in 1:N){
+  mu.mean[i] <- mean(mu[,i])
+}
+
+plot(x, y)
+lines( pred_data, mu.mean, col = "#2c7bb6", lwd = 1.5)
+
+
+
 ta <- data.frame(x, y)
-ta$region <- seq(1:21)
+ta$region <- seq(1:33)
 ta <- merge(ta, g, by = "region")
 
+
+# plot these into ggplot?
+int_avg <- mean(unlist(intercept))
+slope_avg <- mean(unlist(slope))
+
+
+
 ## all regions
-taf <- ggplot(ta, mapping = aes(x,y), color = Location) + 
+taf <- ggplot(ta, mapping = aes(x,y)) + 
   geom_point(
-    aes(colour = as.factor(Location)),
+    colour = "#f768a1",
     alpha = 0.8,
     size = 5
-  ) +
-  scale_color_manual(values = c("Southeastern US" = "#f768a1",
-                                "Midwestern US"="#8c96c6",
-                                "Eastern US Coast"="#7a0177")
   ) +
   geom_abline(
     intercept = 0,
     slope = 1,
     linetype = "dashed",
+    alpha = 0.5,
     size = 0.5
+  ) +
+  geom_abline(
+    intercept = int_avg,
+    slope = slope_avg,
+    colour = "#f768a1",
+    size = 1
   ) +
   labs(
     x = "Space slope", 
@@ -99,12 +212,11 @@ taf <- ggplot(ta, mapping = aes(x,y), color = Location) +
   theme_bw()
 
 
-
 taf <- taf + theme(legend.position = "none")  + labs(title = "Mean forest bird abundance")
 
 
 ## mean - open
-load("~/space-time/final datasets/TA3_mean_open/mean_ta_open.RData")
+load("~/space-time/final datasets/TA3_mean_open/ta_open_apr28.RData")
 
 b_space <- summary(stanfit, pars = "b_space")
 b_time <- summary(stanfit, pars = "b_time")
@@ -115,26 +227,80 @@ x <- b_space$summary[,1]
 y <- b_time$summary[,1]
 
 
+
+## set everything up
+niterations = 8000
+N = 200
+
+bs <- rstan::extract(stanfit, "b_space")
+bt <- rstan::extract(stanfit, "b_time")
+
+b_space <- bs$b_space
+b_time <- bt$b_time
+
+# prediction fake data
+pred_data = seq(from = min(x), to = max(x), length.out = 200 )
+
+# initialize
+intercept <- vector("list")
+slope <- vector("list")
+pred_lines <- vector("list")
+mu <- matrix(nrow=8000, ncol=200)
+
+# for every iteration, calculate correlation of b_space (across 33 regions) and b_time (across 33 regions)
+# then predict values using the intercept & slope for each iteration
+for (i in 1:niterations){
+  
+  mlm = lm(b_time[i,] ~ b_space[i,])
+  
+  intercept[i] = mlm$coefficients[[1]] # use mlm or lmodel2?
+  slope[i] = mlm$coefficients[[2]]
+  
+  mu[i,] <- sapply(pred_data,  function(x) mean( unlist(intercept[i]) + unlist(slope[i]) * x ) ) 
+  
+}
+
+mu.mean <- vector()
+
+# now take the mean of each column for n = 200 to find mean predicted values across all iterations
+for(i in 1:N){
+  mu.mean[i] <- mean(mu[,i])
+}
+
+plot(x, y)
+lines( pred_data, mu.mean, col = "#2c7bb6", lwd = 1.5)
+
+
+
 ta <- data.frame(x, y)
-ta$region <- seq(1:21)
+ta$region <- seq(1:33)
 ta <- merge(ta, g, by = "region")
 
+
+# plot these into ggplot?
+int_avg <- mean(unlist(intercept))
+slope_avg <- mean(unlist(slope))
+
+
 ## all regions
-tao <- ggplot(ta, mapping = aes(x,y), color = Location) + 
+tao <- ggplot(ta, mapping = aes(x,y)) + 
   geom_point(
-    aes(colour = as.factor(Location)),
+    colour = "#7a0177",
     alpha = 0.8,
     size = 5
-  ) +
-  scale_color_manual(values = c("Southeastern US" = "#f768a1",
-                                "Midwestern US"="#8c96c6",
-                                "Eastern US Coast"="#7a0177")
   ) +
   geom_abline(
     intercept = 0,
     slope = 1,
     linetype = "dashed",
+    alpha = 0.5,
     size = 0.5
+  ) +
+  geom_abline(
+    intercept = int_avg,
+    slope = slope_avg,
+    colour = "#7a0177",
+    size = 1
   ) +
   labs(
     x = "Space slope", 
@@ -147,12 +313,11 @@ tao <- ggplot(ta, mapping = aes(x,y), color = Location) +
 tao <- tao + theme(legend.box = "vertical", legend.position = "right") + labs(title = "Mean non-forest bird abundance", color = "Comparison region")
 tao
 
-
 all <- ggarrange(ta_total + theme(legend.position="none"),
                  taf + theme(legend.position="none"), 
                  tao + theme(legend.position="right"),
                  ncol = 1, nrow = 3)
-
-ggsave(filename = "abundance_correlation_plots.png", device = "png", plot = all,
+setwd("/Users/kayla/Documents/space-time/figure plotting")
+ggsave(filename = "abundance_correlation_plots_apr28.png", device = "png", plot = all,
        width = 20, height = 30, units = "cm")
 
