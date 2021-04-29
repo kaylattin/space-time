@@ -19,11 +19,11 @@ d$Region <- as.integer(as.factor(d$ref))
 d$Obs_ID <- as.integer(as.factor(d$ObsN))
 d$Cover_std <- as.vector(scale(d$Forest.cover))
 
-load("~/space-time/final datasets/TA1_total/ta_total_apr28.RData")
+load("~/space-time/final datasets/TA1_total/ta_total_apr29.RData")
 draws <- rstan::extract(stanfit, pars = c("a", "b_space", "b_time", "observer"))
 
 
-pdf("ta_total_regression.pdf", height = 10)
+pdf("ta_total_regression2.pdf", height = 10)
 
 par(mfrow=c(3,2),
     omi=c(0.3, 0.3, 0.3, 0.3))
@@ -205,10 +205,10 @@ d$Region <- as.integer(as.factor(d$ref))
 d$Obs_ID <- as.integer(as.factor(d$ObsN))
 d$Cover_std <- as.vector(scale(d$Forest.cover))
 
-load("~/space-time/final datasets/SR1_total/total_richness_apr28.RData")
+load("~/space-time/final datasets/SR1_total/total_richness_apr29.RData")
 draws <- rstan::extract(stanfit, pars = c("a", "b_space", "b_time", "observer"))
 
-pdf("total_richness_regression.pdf", height = 10)
+pdf("total_richness_regression2.pdf", height = 10)
 
 par(mfrow=c(3,2),
     omi=c(0.3, 0.3, 0.3, 0.3))

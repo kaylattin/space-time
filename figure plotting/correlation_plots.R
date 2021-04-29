@@ -3,20 +3,22 @@ library(ggpubr)
 library(rstan)
 library(ggrepel)
 library(gridExtra)
+library(rethinking)
 
 
 setwd("/Users/kayla/Documents/space-time/final datasets")
 
 
-g <- read.csv("geographical_location.csv")
-g$region <- as.integer(as.factor(g$RouteNumber))
+# g <- read.csv("geographical_location.csv")
+# g$region <- as.integer(as.factor(g$RouteNumber))
 
 
 ### abundance correlation plots
 
 ## total
 
-load("~/space-time/final datasets/TA1_total/ta_total_apr28.RData")
+load("~/space-time/final datasets/TA1_total/ta_total_apr29.RData")
+
 
 b_space <- summary(stanfit, pars = "b_space")
 b_time <- summary(stanfit, pars = "b_time")
@@ -39,7 +41,7 @@ b_space <- bs$b_space
 b_time <- bt$b_time
 
 # prediction fake data
-pred_data = seq(from = min(x), to = max(x), length.out = 200 )
+pred_data = seq(from = (min(x) - 0.05), to = (max(x) + 0.05), length.out = 200 )
 
 # initialize
 intercept <- vector("list")
@@ -60,27 +62,25 @@ for (i in 1:niterations){
   
 }
 
-mu.mean <- vector()
+mu.mean <- apply( mu, 2, mean)
+ci.mean <- apply( mu, 2, PI, prob = 0.95 )
 
-# now take the mean of each column for n = 200 to find mean predicted values across all iterations
-for(i in 1:N){
-  mu.mean[i] <- mean(mu[,i])
-}
 
 plot(x, y)
 lines( pred_data, mu.mean, col = "#2c7bb6", lwd = 1.5)
+shade( ci.mean, pred_data)
 
-
-
+## Now move onto ggplot and just feed the intercept & slope in; compare to above (which is the correct way of doing it)
 ta <- data.frame(x, y)
 ta$region <- seq(1:33)
-ta <- merge(ta, g, by = "region")
 
 
 # plot these into ggplot?
 int_avg <- mean(unlist(intercept))
 slope_avg <- mean(unlist(slope))
 
+
+conf <- data.frame(pred_data, mu.mean)
 
 
 
@@ -112,7 +112,13 @@ ta_total <- ggplot(ta, mapping = aes(x,y)) +
   theme_bw()
 
 
-ta_total <- ta_total +  theme(legend.position = "none")  + labs(title = "Total bird abundance")
+ta_total <- ta_total +  theme()  + labs(title = "Total bird abundance") +
+  geom_ribbon(data = conf, mapping = aes(x = pred_data, y = mu.mean,
+                                         xmin = min(pred_data), xmax = max(pred_data),
+                                         ymin = ci.mean[1,],
+                                         ymax = ci.mean[2,]),
+              fill = "#8c96c6",
+              alpha = 0.1)
 ta_total
 
 ## mean - forest
@@ -157,31 +163,29 @@ for (i in 1:niterations){
   intercept[i] = mlm$coefficients[[1]] # use mlm or lmodel2?
   slope[i] = mlm$coefficients[[2]]
   
-  mu[i,] <- sapply(pred_data,  function(x) mean( unlist(intercept[i]) + unlist(slope[i]) * x ) ) 
+  mu[i,] <- sapply(pred_data,  function(x) unlist(intercept[i]) + unlist(slope[i]) * x ) 
   
 }
 
-mu.mean <- vector()
+mu.mean <- apply( mu, 2, mean)
+ci.mean2 <- apply( mu, 2, PI, prob = 0.95 )
 
-# now take the mean of each column for n = 200 to find mean predicted values across all iterations
-for(i in 1:N){
-  mu.mean[i] <- mean(mu[,i])
-}
 
 plot(x, y)
 lines( pred_data, mu.mean, col = "#2c7bb6", lwd = 1.5)
+shade( ci.mean, pred_data)
 
-
-
+## Now move onto ggplot and just feed the intercept & slope in; compare to above (which is the correct way of doing it)
 ta <- data.frame(x, y)
 ta$region <- seq(1:33)
-ta <- merge(ta, g, by = "region")
 
 
 # plot these into ggplot?
 int_avg <- mean(unlist(intercept))
 slope_avg <- mean(unlist(slope))
 
+
+conf2 <- data.frame(pred_data, mu.mean)
 
 
 ## all regions
@@ -212,8 +216,14 @@ taf <- ggplot(ta, mapping = aes(x,y)) +
   theme_bw()
 
 
-taf <- taf + theme(legend.position = "none")  + labs(title = "Mean forest bird abundance")
-
+taf <- taf + theme() + labs(title = "Mean forest bird abundance") +
+  geom_ribbon(data = conf2, mapping = aes(x = pred_data, y = mu.mean,
+                                         xmin = min(pred_data), xmax = max(pred_data),
+                                         ymin = ci.mean2[1,],
+                                         ymax = ci.mean2[2,]),
+              fill = "#f768a1",
+              alpha = 0.1)
+taf
 
 ## mean - open
 load("~/space-time/final datasets/TA3_mean_open/ta_open_apr28.RData")
@@ -239,7 +249,7 @@ b_space <- bs$b_space
 b_time <- bt$b_time
 
 # prediction fake data
-pred_data = seq(from = min(x), to = max(x), length.out = 200 )
+pred_data = seq(from = (min(x) - 0.05), to = (max(x) + 0.05), length.out = 200 )
 
 # initialize
 intercept <- vector("list")
@@ -256,30 +266,29 @@ for (i in 1:niterations){
   intercept[i] = mlm$coefficients[[1]] # use mlm or lmodel2?
   slope[i] = mlm$coefficients[[2]]
   
-  mu[i,] <- sapply(pred_data,  function(x) mean( unlist(intercept[i]) + unlist(slope[i]) * x ) ) 
+  mu[i,] <- sapply(pred_data,  function(x) unlist(intercept[i]) + unlist(slope[i]) * x ) 
   
 }
 
-mu.mean <- vector()
+mu.mean <- apply( mu, 2, mean)
+ci.mean3 <- apply( mu, 2, PI, prob = 0.95 )
 
-# now take the mean of each column for n = 200 to find mean predicted values across all iterations
-for(i in 1:N){
-  mu.mean[i] <- mean(mu[,i])
-}
 
 plot(x, y)
 lines( pred_data, mu.mean, col = "#2c7bb6", lwd = 1.5)
+shade( ci.mean, pred_data)
 
-
-
+## Now move onto ggplot and just feed the intercept & slope in; compare to above (which is the correct way of doing it)
 ta <- data.frame(x, y)
 ta$region <- seq(1:33)
-ta <- merge(ta, g, by = "region")
 
 
 # plot these into ggplot?
 int_avg <- mean(unlist(intercept))
 slope_avg <- mean(unlist(slope))
+
+
+conf3 <- data.frame(pred_data, mu.mean)
 
 
 ## all regions
@@ -310,14 +319,24 @@ tao <- ggplot(ta, mapping = aes(x,y)) +
   theme_bw()
 
 
-tao <- tao + theme(legend.box = "vertical", legend.position = "right") + labs(title = "Mean non-forest bird abundance", color = "Comparison region")
+tao <- tao + theme() + labs(title = "Mean non-forest bird abundance") +
+  geom_ribbon(data = conf3, mapping = aes(x = pred_data, y = mu.mean,
+                                         xmin = min(pred_data), xmax = max(pred_data),
+                                         ymin = ci.mean3[1,],
+                                         ymax = ci.mean3[2,]),
+              fill = "#7a0177",
+              alpha = 0.1)
 tao
 
 all <- ggarrange(ta_total + theme(legend.position="none"),
                  taf + theme(legend.position="none"), 
                  tao + theme(legend.position="right"),
                  ncol = 1, nrow = 3)
+
+
+all 
+
 setwd("/Users/kayla/Documents/space-time/figure plotting")
-ggsave(filename = "abundance_correlation_plots_apr28.png", device = "png", plot = all,
+ggsave(filename = "abundance_correlation_plots_apr29.png", device = "png", plot = all,
        width = 20, height = 30, units = "cm")
 
