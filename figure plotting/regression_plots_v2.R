@@ -129,7 +129,7 @@ for(i in 1:33){
        labels = c(round(min(d_filter$Forest.cover),2), round(median(d_filter$Forest.cover),2), round(max(d_filter$Forest.cover),2)),
        cex.axis = 1.25)
   axis(2, cex.axis = 1.25)
-  line <- d %>% filter(Region == 12)
+  line <- d %>% filter(Region == 20)
   abline(v = median(line$Cover_std), lty = 2, col = alpha("black", 0.2))
   
   shade( ci.space, x.seq, col = alpha("#ED432D", 0.05))
@@ -141,6 +141,7 @@ for(i in 1:33){
   
 }
 dev.off()
+pdf_convert("ta_forest_regression_all.pdf",  pages = 1:6)
 
 
 ####### MEAN ABUNDANCES - OPEN ############
@@ -211,7 +212,7 @@ for(i in 1:33){
 }
 dev.off()
 
-
+pdf_convert("ta_open_regression_all.pdf",  pages = 1:6)
 
 
 
@@ -333,7 +334,7 @@ for(i in 1:33){
        labels = c(round(min(d_filter$Forest.cover),2), round(median(d_filter$Forest.cover),2), round(max(d_filter$Forest.cover),2)),
        cex.axis = 1.25)
   axis(2, cex.axis = 1.25)
-  line <- d %>% filter(Region == 11)
+  line <- d %>% filter(Region == 20)
   abline(v = median(line$Cover_std), lty = 2, col = alpha("black", 0.2))
   
   shade( ci.space, x.seq, col = alpha("#ED432D", 0.05))
@@ -345,7 +346,7 @@ for(i in 1:33){
   
 }
 dev.off()
-
+pdf_convert("richness_forest_regression_all.pdf",  pages = 1:6)
 
 
 
@@ -415,7 +416,7 @@ for(i in 1:33){
   
 }
 dev.off()
-
+pdf_convert("richness_open_regression_all.pdf",  pages = 1:6)
 
 
 ########## EVENNESS ###############
@@ -477,3 +478,4 @@ for(i in 1:33){
   
 }
 dev.off()
+

@@ -230,7 +230,7 @@ p1 <- ggplot(ta, mapping = aes(x,y)) +
 
 
 p1 <- p1 + theme(plot.margin = unit(c(1,1,1,1),"cm"),
-                 plot.title = element_text(size = 18),
+                 plot.title = element_text(size = 20, face = "bold"),
                  axis.title = element_text(size = 14), axis.title.x = element_text(vjust= -2 ), axis.title.y = element_text(vjust = 5), 
                  axis.text = element_text(size = 12)) + labs(title = "") +
   labs(title = expression(paste("II. ", italic(N[spatial])," > ",italic(N[temporal]))), size = "Spatial sample size") +
@@ -467,7 +467,7 @@ p3 <- ggplot(ta, mapping = aes(x,y)) +
 
 
 p3 <- p3 + theme(plot.margin = unit(c(1,1,1,1),"cm"),
-                 plot.title = element_text(size = 18),
+                 plot.title = element_text(size = 20, face = "bold"),
                  axis.title = element_text(size = 14), axis.title.x = element_text(vjust= -2 ), axis.title.y = element_text(vjust = 5), 
                  axis.text = element_text(size = 12)) + labs(title = "") +
   labs(title = expression(paste("I. ", italic(N[spatial]),phantom() %~~% phantom(),italic(N[temporal]))), size = "Spatial sample size") +
@@ -587,13 +587,13 @@ p4
 
 
 all <- ggarrange(p3,
-                 p1 + theme(legend.position="none"), 
+                 p1 + theme(legend.position="bottom"), 
                  p4,
-                 p2 + theme(legend.position="none"),
+                 p2 + theme(legend.position="bottom"),
                  ncol = 2, nrow = 2)
 
 all
 
-ggsave(filename = "richness_correlation_4plots_minimal.png", device = "png", plot = all,
+ggsave(filename = "richness_correlation_legend.png", device = "png", plot = all,
        width = 30, height = 30, units = "cm")
 

@@ -238,7 +238,7 @@ p1 <- ggplot(ta, mapping = aes(x,y)) +
 
 p1 <- p1 + theme(legend.position = "bottom",
                  plot.margin = unit(c(1,1,1,1),"cm"),
-                 plot.title = element_text(size = 18),
+                 plot.title = element_text(size = 20, face = "bold"),
                  axis.title = element_text(size = 14), axis.title.x = element_text(vjust= -2 ), axis.title.y = element_text(vjust = 5), 
                  axis.text = element_text(size = 12)) + labs(title = "") +
   labs(title = expression(paste("II. ", italic(N[spatial])," > ",italic(N[temporal]))), size = "Spatial sample size") +
@@ -423,7 +423,7 @@ for (i in 1:niterations){
 }
 
 mu.mean <- apply( mu, 2, mean)
-ci.mean2 <- apply( mu, 2, PI, prob = 0.95 )
+ci.mean4 <- apply( mu, 2, PI, prob = 0.95 )
 
 
 plot(x, y)
@@ -442,7 +442,7 @@ int_avg <- mean(unlist(intercept))
 slope_avg <- mean(unlist(slope))
 
 
-conf2 <- data.frame(pred_data, mu.mean)
+conf4 <- data.frame(pred_data, mu.mean)
 
 
 ## all regions
@@ -474,14 +474,14 @@ p3 <- ggplot(ta, mapping = aes(x,y)) +
 
 
 p3 <- p3 + theme(plot.margin = unit(c(1,1,1,1),"cm"),
-                 plot.title = element_text(size = 18),
+                 plot.title = element_text(size = 20, face = "bold"),
                  axis.title = element_text(size = 14), axis.title.x = element_text(vjust= -2 ), axis.title.y = element_text(vjust = 5), 
                  axis.text = element_text(size = 12)) + labs(title = "") +
   labs(title = expression(paste("I. ", italic(N[spatial]),phantom() %~~% phantom(),italic(N[temporal]))), size = "Spatial sample size") +
-  geom_ribbon(data = conf2, mapping = aes(x = pred_data, y = mu.mean,
+  geom_ribbon(data = conf4, mapping = aes(x = pred_data, y = mu.mean,
                                           xmin = min(pred_data), xmax = max(pred_data),
-                                          ymin = ci.mean2[1,],
-                                          ymax = ci.mean2[2,]),
+                                          ymin = ci.mean4[1,],
+                                          ymax = ci.mean4[2,]),
               fill = "#31a354",
               alpha = 0.1)
 p3
@@ -533,7 +533,7 @@ for (i in 1:niterations){
 }
 
 mu.mean <- apply( mu, 2, mean)
-ci.mean3 <- apply( mu, 2, PI, prob = 0.95 )
+ci.mean5 <- apply( mu, 2, PI, prob = 0.95 )
 
 
 plot(x, y)
@@ -551,7 +551,7 @@ int_avg <- mean(unlist(intercept))
 slope_avg <- mean(unlist(slope))
 
 
-conf3 <- data.frame(pred_data, mu.mean)
+conf5 <- data.frame(pred_data, mu.mean)
 
 
 ## all regions
@@ -585,10 +585,10 @@ p4 <- ggplot(ta, mapping = aes(x,y)) +
 p4 <- p4 + theme(plot.margin = unit(c(0,1,1,1),"cm"),
                  axis.title = element_text(size = 14), axis.title.x = element_text(vjust= -2 ), axis.title.y = element_text(vjust = 5), 
                  axis.text = element_text(size = 12)) + labs(title = "") + labs(title = "", size = "Spatial sample size") +
-  geom_ribbon(data = conf3, mapping = aes(x = pred_data, y = mu.mean,
+  geom_ribbon(data = conf5, mapping = aes(x = pred_data, y = mu.mean,
                                           xmin = min(pred_data), xmax = max(pred_data),
-                                          ymin = ci.mean3[1,],
-                                          ymax = ci.mean3[2,]),
+                                          ymin = ci.mean5[1,],
+                                          ymax = ci.mean5[2,]),
               fill = "#addd8e",
               alpha = 0.1)
 p4
@@ -597,13 +597,13 @@ p4
 
 
 all <- ggarrange(p3,
-                 p1 + theme(legend.position="none"), 
+                 p1 + theme(legend.position="bottom"), 
                  p4,
-                 p2 + theme(legend.position="none"),
+                 p2 + theme(legend.position="bottom"),
                  ncol = 2, nrow = 2)
 
 all
 
-ggsave(filename = "abundance_correlation_plots_4plots_minimal.png", device = "png", plot = all,
+ggsave(filename = "abundance_correlation_legend.png", device = "png", plot = all,
        width = 30, height = 30, units = "cm")
 
